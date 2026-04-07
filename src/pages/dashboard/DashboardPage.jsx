@@ -45,9 +45,9 @@ export default function DashboardPage() {
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Your Resumes</h2>
         {resumes.length === 0 ? (
           <Card className="text-center py-12">
-            <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No resumes yet</h3>
-            <p className="text-gray-500 mb-6">Create your first ATS-optimized resume to get started.</p>
+            <p className="text-gray-500 mb-6">Your first resume takes about 8 minutes. Start with your most recent job.</p>
             <Button onClick={handleNew}><Plus className="h-4 w-4 mr-2" />Create Resume</Button>
           </Card>
         ) : (
