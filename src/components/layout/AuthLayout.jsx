@@ -8,8 +8,8 @@ export default function AuthLayout() {
       <div className="hidden lg:flex lg:w-1/2 bg-brand-600 items-center justify-center p-12">
         <div className="max-w-md text-white">
           <FileText className="h-12 w-12 mb-6" />
-          <h1 className="text-3xl font-bold mb-4">Build ATS-Optimized Resumes with AI</h1>
-          <p className="text-brand-100 text-lg">Join thousands of job seekers who land more interviews with ScopusResume.</p>
+          <h1 className="text-3xl font-bold mb-4">Your resume is waiting.</h1>
+          <p className="text-brand-100 text-lg">Sign in to pick up where you left off — your resumes, scores, and tailored applications in one place.</p>
         </div>
       </div>
       <div className="flex-1 flex items-center justify-center p-6">
