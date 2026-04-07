@@ -41,7 +41,7 @@ export default function LandingPage() {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900">Everything You Need to Land Interviews</h2>
+            <h2 className="text-4xl font-bold text-gray-900">Everything You Need to Land Interviews</h2>
             <p className="mt-4 text-lg text-gray-600">Powerful AI tools designed for job seekers.</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -49,7 +49,7 @@ export default function LandingPage() {
               <div key={title} className="p-6 rounded-xl border border-gray-200 hover:shadow-md transition">
                 <div className="w-12 h-12 bg-brand-100 rounded-lg flex items-center justify-center mb-4"><Icon className="h-6 w-6 text-brand-600" /></div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
-                <p className="text-gray-600 text-sm">{desc}</p>
+                <p className="text-gray-600 text-base">{desc}</p>
               </div>
             ))}
           </div>
@@ -60,7 +60,7 @@ export default function LandingPage() {
       <section id="how-it-works" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900">How It Works</h2>
+            <h2 className="text-4xl font-bold text-gray-900">How It Works</h2>
             <p className="mt-4 text-lg text-gray-600">Three simple steps to your best resume.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
@@ -78,7 +78,7 @@ export default function LandingPage() {
       {/* Testimonials */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">What Job Seekers Say</h2>
+          <h2 className="text-4xl font-bold text-gray-900 text-center mb-12">What Job Seekers Say</h2>
           <div className="grid md:grid-cols-3 gap-8">
             {[
               { name: 'Sarah K.', role: 'Software Engineer', text: 'I went from 0 callbacks to 5 interviews in two weeks after optimizing my resume with ScopusResume.' },
@@ -99,7 +99,7 @@ export default function LandingPage() {
       {/* CTA */}
       <section className="py-20 bg-brand-600">
         <div className="max-w-3xl mx-auto text-center px-4">
-          <h2 className="text-3xl font-bold text-white mb-4">Ready to Land More Interviews?</h2>
+          <h2 className="text-4xl font-bold text-white mb-4">Ready to Land More Interviews?</h2>
           <p className="text-brand-100 text-lg mb-8">Join thousands of job seekers building better resumes with AI.</p>
           <Link to="/signup" className="inline-flex items-center bg-white text-brand-700 font-semibold px-8 py-3 rounded-lg hover:bg-brand-50 transition">Start Building for Free <ArrowRight className="ml-2 h-5 w-5" /></Link>
         </div>
