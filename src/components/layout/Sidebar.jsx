@@ -5,7 +5,7 @@ import { LayoutDashboard, PenTool, Search } from 'lucide-react';
 const links = [
   { to: '/app/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/app/builder', icon: PenTool, label: 'Resume Builder' },
-  { to: '/app/jd-analyzer', icon: Search, label: 'JD Analyzer' },
+  { to: '/app/jd-analyzer', icon: Search, label: 'AI Tailor' },
 ];
 
 export default function Sidebar() {
