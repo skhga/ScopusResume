@@ -31,7 +31,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { icon: FileText, label: 'Total Resumes', value: resumes.length, color: 'text-brand-600 bg-brand-100' },
-          { icon: BarChart3, label: 'Avg ATS Score', value: '72%', color: 'text-green-600 bg-green-100' },
+          { icon: BarChart3, label: 'Avg ATS Score', value: resumes.length > 0 ? '—' : '—', color: 'text-green-600 bg-green-100' },
           { icon: Send, label: 'Applications', value: '0', color: 'text-purple-600 bg-purple-100' },
         ].map(s => (
           <Card key={s.label}>
@@ -56,7 +56,7 @@ export default function DashboardPage() {
               <Card key={r.id}>
                 <div className="flex items-start justify-between mb-3">
                   <div><h3 className="font-semibold text-gray-900">{r.name}</h3><p className="text-xs text-gray-500 mt-0.5">Last updated {new Date(r.updatedAt).toLocaleDateString()}</p></div>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">72%</span>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Not scanned</span>
                 </div>
                 <div className="flex items-center space-x-2 pt-3 border-t border-gray-100">
                   <button onClick={() => handleEdit(r.id)} className="flex items-center text-sm text-gray-600 hover:text-brand-600"><Pencil className="h-3.5 w-3.5 mr-1" />Edit</button>
