@@ -44,12 +44,14 @@ export default function LandingPage() {
             <h2 className="text-4xl font-bold text-gray-900">Everything You Need to Land Interviews</h2>
             <p className="mt-4 text-lg text-gray-600">Powerful AI tools designed for job seekers.</p>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 gap-6">
             {features.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="p-6 rounded-xl border border-gray-200 hover:shadow-md transition">
-                <div className="w-12 h-12 bg-brand-100 rounded-lg flex items-center justify-center mb-4"><Icon className="h-6 w-6 text-brand-600" /></div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
-                <p className="text-gray-600 text-base">{desc}</p>
+              <div key={title} className="flex items-start gap-4 p-6 rounded-xl border border-gray-100 hover:border-brand-200 hover:shadow-sm transition">
+                <Icon className="h-5 w-5 text-brand-600 mt-0.5 shrink-0" />
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 mb-1">{title}</h3>
+                  <p className="text-gray-600 text-base leading-relaxed">{desc}</p>
+                </div>
               </div>
             ))}
           </div>
