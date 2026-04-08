@@ -5,6 +5,7 @@ import { ArrowRight, CheckCircle2, ChevronRight, Zap, FileSearch, Sparkles } fro
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
 import GeometricHero from '../../components/ui/geometric-hero';
+import TestimonialsMarquee from '../../components/common/TestimonialsMarquee';
 
 const fadeUp = (i = 0) => ({
   initial: { opacity: 0, y: 24 },
@@ -57,11 +58,6 @@ const STEPS = [
   },
 ];
 
-const TESTIMONIALS = [
-  { quote: 'I went from 0 callbacks to 5 interviews in two weeks.', name: 'Sarah K.', role: 'Software Engineer' },
-  { quote: 'The diff view makes it obvious exactly what to change. I stopped guessing.', name: 'James L.', role: 'Marketing Graduate' },
-  { quote: 'Helped me apply to jobs in France. Landed my first role abroad.', name: 'Priya M.', role: 'International Student' },
-];
 
 export default function LandingPage() {
   return (
@@ -237,21 +233,23 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-12">What job seekers say</h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map(t => (
-              <div key={t.name} className="bg-white p-6 rounded-xl border border-gray-200">
-                <div className="flex mb-3">{[1,2,3,4,5].map(i => <span key={i} className="text-yellow-400 text-sm">&#9733;</span>)}</div>
-                <p className="text-gray-700 mb-4">"{t.quote}"</p>
-                <p className="font-semibold text-gray-900 text-sm">{t.name}</p>
-                <p className="text-xs text-gray-500">{t.role}</p>
-              </div>
-            ))}
+      {/* Testimonials — infinite marquee */}
+      <section className="py-20 bg-white overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
+          <div className="flex justify-center mb-4">
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-xs font-semibold uppercase tracking-widest">
+              <span className="text-yellow-400">★</span>
+              Loved by job seekers
+            </span>
           </div>
+          <h2 className="text-4xl font-extrabold text-gray-900 text-center tracking-tight">
+            What job seekers say
+          </h2>
+          <p className="mt-3 text-gray-500 text-lg text-center max-w-xl mx-auto">
+            Real results from people who stopped guessing and started getting callbacks.
+          </p>
         </div>
+        <TestimonialsMarquee speed={40} bgColor="white" />
       </section>
 
       {/* CTA */}
