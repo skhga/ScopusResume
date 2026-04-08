@@ -110,7 +110,7 @@ export default function LandingPage() {
                   <div>
                     <div className="h-2 bg-brand-600 rounded w-16 mb-1" />
                     <div className="flex flex-wrap gap-1">
-                      {['React', 'TypeScript', 'Node.js', 'PostgreSQL'].map(s => (
+                      {['Leadership', 'Data Analysis', 'Excel', 'SQL'].map(s => (
                         <span key={s} className="bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded text-xs">{s}</span>
                       ))}
                     </div>
