@@ -2,7 +2,7 @@ import { Warp } from "@paper-design/shaders-react";
 
 export default function WarpShaderHero({ children }) {
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative overflow-hidden bg-brand-900">
       {/* Shader background */}
       <div className="absolute inset-0">
         <Warp
