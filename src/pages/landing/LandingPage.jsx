@@ -192,7 +192,7 @@ export default function LandingPage() {
       </section>
 
       {/* CTA */}
-      <section className="py-20" style={{ background: 'linear-gradient(135deg, #0d9488 0%, #ff6584 50%, #f59e0b 100%)' }}>
+      <section className="py-20 bg-brand-700">
         <div className="max-w-2xl mx-auto text-center px-4">
           <h2 className="text-3xl font-bold text-white mb-3">Your next interview is one resume away</h2>
           <p className="text-white/80 mb-8">Build an ATS-optimized resume in 8 minutes. Free to start.</p>
