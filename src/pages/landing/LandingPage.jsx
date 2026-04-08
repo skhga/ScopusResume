@@ -46,35 +46,36 @@ export default function LandingPage() {
       <Navbar />
 
       {/* Hero — 2 col, left-heavy */}
+      <div style={{ background: 'linear-gradient(135deg, #0d9488 0%, #ff6584 60%, #f59e0b 100%)' }}>
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20 lg:pt-24 lg:pb-28">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div>
-            <p className="text-brand-600 text-sm font-semibold uppercase tracking-wider mb-4">Resume builder for job seekers</p>
-            <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight leading-tight">
+            <p className="text-white/80 text-sm font-semibold uppercase tracking-wider mb-4">Resume builder for job seekers</p>
+            <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
               Stop getting rejected before anyone reads your resume
             </h1>
             <div className="mt-6 space-y-3">
               {PAIN_POINTS.map(p => (
                 <div key={p} className="flex items-start gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-secondary-500 mt-0.5 shrink-0" />
-                  <p className="text-gray-600">{p}</p>
+                  <CheckCircle2 className="h-5 w-5 text-white/90 mt-0.5 shrink-0" />
+                  <p className="text-white/80">{p}</p>
                 </div>
               ))}
             </div>
             <div className="mt-10 flex flex-col sm:flex-row gap-3">
-              <Link to="/signup" className="btn-primary text-base px-8 py-3 inline-flex items-center justify-center">
+              <Link to="/signup" className="inline-flex items-center justify-center bg-white text-brand-700 hover:bg-brand-50 font-bold px-8 py-3 rounded-lg transition shadow-lg hover:shadow-xl text-base min-h-[44px]">
                 Build my resume free <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
-              <a href="#how-it-works" className="btn-secondary text-base px-8 py-3 inline-flex items-center justify-center">
+              <a href="#how-it-works" className="inline-flex items-center justify-center border-2 border-white/60 text-white hover:bg-white/10 font-medium px-8 py-3 rounded-lg transition text-base min-h-[44px]">
                 See how it works
               </a>
             </div>
-            <p className="text-sm text-gray-400 mt-4">No credit card. Takes 8 minutes.</p>
+            <p className="text-white/60 text-sm mt-4">No credit card. Takes 8 minutes.</p>
           </div>
 
           {/* Preview card */}
           <div className="hidden lg:block">
-            <div className="bg-gray-50 rounded-2xl border border-gray-200 p-6 shadow-sm">
+            <div className="bg-white/95 rounded-2xl border border-white/20 p-6 shadow-2xl">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-3 h-3 rounded-full bg-red-300" />
                 <div className="w-3 h-3 rounded-full bg-yellow-300" />
@@ -123,6 +124,7 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+      </div>
 
       {/* Features — alternating rows */}
       <section className="bg-gray-50 py-20">
