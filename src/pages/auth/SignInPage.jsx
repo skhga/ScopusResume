@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import Button from '../../components/common/Button';
 
 export default function SignInPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -14,7 +15,11 @@ export default function SignInPage() {
     e.preventDefault();
     if (!form.email || !form.password) { setError('All fields required'); return; }
     setLoading(true); setError('');
-    try { await login(form.email, form.password); navigate('/app/dashboard'); }
+    try {
+      await login(form.email, form.password);
+      const from = location.state?.from?.pathname || '/app/dashboard';
+      navigate(from, { replace: true });
+    }
     catch { setError('Invalid credentials'); }
     finally { setLoading(false); }
   };

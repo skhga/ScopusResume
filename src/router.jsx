@@ -6,6 +6,7 @@ import { ResumeProvider } from './context/ResumeContext';
 
 import AuthLayout from './components/layout/AuthLayout';
 import AppLayout from './components/layout/AppLayout';
+import RequireAuth from './components/auth/RequireAuth';
 
 import LandingPage from './pages/landing/LandingPage';
 import SignUpPage from './pages/auth/SignUpPage';
@@ -48,7 +49,7 @@ const router = createBrowserRouter([
 
       {
         path: '/app',
-        element: <AppLayout />,
+        element: <RequireAuth><AppLayout /></RequireAuth>,
         children: [
           { index: true, element: <DashboardPage /> },
           { path: 'dashboard', element: <DashboardPage /> },
