@@ -9,6 +9,7 @@ export default function SignUpPage() {
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
 
   const validate = () => {
     const e = {};
@@ -25,11 +26,41 @@ export default function SignUpPage() {
     if (!validate()) return;
     setLoading(true);
     try {
-      await register(form);
-      navigate('/app/dashboard');
-    } catch { setErrors({ general: 'Registration failed' }); }
-    finally { setLoading(false); }
+      const { session } = await register(form);
+      if (session) {
+        navigate('/app/dashboard');
+      } else {
+        // Supabase email confirmation is enabled — no session until user confirms
+        setAwaitingConfirmation(true);
+      }
+    } catch (err) {
+      setErrors({ general: err.message || 'Registration failed' });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (awaitingConfirmation) {
+    return (
+      <div className="text-center">
+        <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-8 h-8 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Check your inbox</h2>
+        <p className="text-gray-600 mb-2">
+          We sent a confirmation email to <strong>{form.email}</strong>.
+        </p>
+        <p className="text-gray-500 text-sm mb-6">
+          Click the link in the email to activate your account, then sign in.
+        </p>
+        <Link to="/signin" className="inline-flex items-center px-5 py-2.5 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition">
+          Go to Sign In
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div>

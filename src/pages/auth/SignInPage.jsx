@@ -20,7 +20,7 @@ export default function SignInPage() {
       const from = location.state?.from?.pathname || '/app/dashboard';
       navigate(from, { replace: true });
     }
-    catch { setError('Invalid credentials'); }
+    catch (err) { setError(err.message || 'Invalid credentials'); }
     finally { setLoading(false); }
   };
 
