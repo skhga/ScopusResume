@@ -1,68 +1,220 @@
-const delay = (ms) => new Promise(r => setTimeout(r, ms));
+import { resumeToText } from '../utils/resumeToText';
 
-export async function analyzeJobDescription(jdText, resume) {
-  await delay(1500);
-  const skills = resume?.skills || {};
-  const allSkills = [
-    ...(skills.technicalSkills || []),
-    ...(skills.programmingLanguages || []),
-    ...(skills.toolsSoftware || []),
-  ].map(s => s.toLowerCase());
+const ANTHROPIC_KEY = process.env.REACT_APP_ANTHROPIC_KEY;
+const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+const IS_PROD = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
 
-  const required = ['React.js', 'Node.js', 'TypeScript', 'REST APIs', 'PostgreSQL'];
-  const matchedSkills = required.filter(s => allSkills.some(sk => sk.toLowerCase().includes(s.toLowerCase())));
-  const missingKeywords = required.filter(s => !allSkills.some(sk => sk.toLowerCase().includes(s.toLowerCase())));
-
-  return {
-    overallScore: Math.round((matchedSkills.length / required.length) * 100),
-    matchedSkills,
-    missingKeywords,
-    suggestions: [
-      'Add more quantified achievements to bullet points',
-      'Include missing keywords in your skills section',
-      'Tailor your summary to match the job description',
-    ],
-  };
+/**
+ * Call a Vercel proxy endpoint (production path).
+ * The proxy handles the Anthropic API key server-side.
+ */
+async function callProxy(endpoint, body) {
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error || `Request failed: ${res.status}`);
+  }
+  return res.json();
 }
 
+/**
+ * Call Anthropic directly (dev path — requires REACT_APP_ANTHROPIC_KEY in .env.local).
+ */
+async function callLLM(systemPrompt, userMessage) {
+  if (!ANTHROPIC_KEY) {
+    throw new Error(
+      'No Anthropic API key. Set REACT_APP_ANTHROPIC_KEY in .env.local (see .env.local.example).'
+    );
+  }
+
+  const res = await fetch(ANTHROPIC_URL, {
+    method: 'POST',
+    headers: {
+      'x-api-key': ANTHROPIC_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }],
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `LLM request failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data.content[0].text;
+}
+
+/**
+ * Parse the LLM response as JSON, stripping markdown code fences if present.
+ * Returns null if parsing fails.
+ */
+function parseJSON(text) {
+  try {
+    const stripped = text.replace(/^```(?:json)?\s*/m, '').replace(/\s*```\s*$/m, '').trim();
+    return JSON.parse(stripped);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Tailor a resume for a specific job description.
+ * Returns an array of diff objects: [{section, original, tailored, reason}]
+ * Production: calls /api/tailor proxy. Dev: calls Anthropic directly.
+ */
+export async function tailorResume(resume, jd) {
+  if (!jd || !jd.trim()) {
+    throw new Error('Job description is required.');
+  }
+
+  const resumeText = resumeToText(resume);
+
+  // Production: use the Vercel proxy (ANTHROPIC_KEY is server-side only)
+  if (IS_PROD || !ANTHROPIC_KEY) {
+    return callProxy('/api/tailor', { resumeText, jd: jd.slice(0, 5000) });
+  }
+
+  // Dev: call Anthropic directly
+  const systemPrompt = `You are an expert resume coach helping job seekers tailor their resumes to specific job descriptions.
+Your goal is to improve the resume's match to the job while maintaining the candidate's authentic voice — never invent experience or exaggerate.
+
+Return ONLY a JSON array. No prose, no markdown, no explanation outside the JSON.
+
+Each element must have exactly these fields:
+{
+  "section": string,
+  "original": string,
+  "tailored": string,
+  "reason": string
+}
+
+Rules:
+- Only include sections that were actually changed
+- Do not invent experience, degrees, or skills that aren't in the resume
+- Keep the candidate's writing voice — don't make it sound like a different person
+- Prioritize bullet points that can be rewritten to match JD keywords
+- If a section is already strong for this job, skip it`;
+
+  const raw = await callLLM(systemPrompt, `RESUME:\n${resumeText || '(empty resume)'}\n\nJOB DESCRIPTION:\n${jd.slice(0, 5000)}`);
+  const parsed = parseJSON(raw);
+
+  if (!Array.isArray(parsed)) {
+    throw new Error('LLM returned malformed response. Please try again.');
+  }
+  for (const item of parsed) {
+    if (!item.section || !item.tailored || !item.reason) {
+      throw new Error('LLM returned malformed diff objects. Please try again.');
+    }
+  }
+  return parsed;
+}
+
+/**
+ * Analyze a job description against a resume.
+ * Returns ATS match score, matched skills, missing keywords, and suggestions.
+ * Production: calls /api/analyze proxy. Dev: calls Anthropic directly or uses mock.
+ */
+export async function analyzeJobDescription(jdText, resume) {
+  const resumeText = resumeToText(resume);
+
+  // Production: use the Vercel proxy
+  if (IS_PROD) {
+    return callProxy('/api/analyze', { resumeText, jd: jdText.slice(0, 5000) });
+  }
+
+  if (!ANTHROPIC_KEY) {
+    // Dev mock — useful for UI development without a key
+    console.warn('[aiService] No API key — using mock analyzeJobDescription response.');
+    await new Promise(r => setTimeout(r, 800));
+    const skills = resume?.skills || {};
+    const allSkills = [
+      ...(skills.technicalSkills || []),
+      ...(skills.programmingLanguages || []),
+      ...(skills.toolsSoftware || []),
+    ].map(s => s.toLowerCase());
+    const required = ['React.js', 'Node.js', 'TypeScript', 'REST APIs', 'PostgreSQL'];
+    const matched = required.filter(s => allSkills.some(sk => sk.includes(s.toLowerCase())));
+    const missing = required.filter(s => !allSkills.some(sk => sk.includes(s.toLowerCase())));
+    return {
+      overallScore: Math.round((matched.length / required.length) * 100),
+      matchedSkills: matched,
+      missingKeywords: missing,
+      suggestions: [
+        'Add more quantified achievements to bullet points',
+        'Include missing keywords in your skills section',
+        'Tailor your summary to match the job description',
+      ],
+    };
+  }
+
+  // Dev with key: call Anthropic directly
+  const systemPrompt = `You are an ATS (Applicant Tracking System) analyzer.
+Analyze how well a resume matches a job description. Return ONLY a JSON object with this shape:
+{
+  "overallScore": number (0-100),
+  "matchedSkills": string[],
+  "missingKeywords": string[],
+  "suggestions": string[]
+}`;
+
+  const raw = await callLLM(systemPrompt, `RESUME:\n${resumeText || '(empty resume)'}\n\nJOB DESCRIPTION:\n${jdText.slice(0, 5000)}`);
+  const parsed = parseJSON(raw);
+
+  if (!parsed || typeof parsed.overallScore !== 'number') {
+    throw new Error('LLM returned malformed analysis. Please try again.');
+  }
+  return parsed;
+}
+
+// Legacy helpers
 export async function rewriteBulletPoint(original) {
-  await delay(1000);
-  return `Spearheaded ${original.toLowerCase().replace('responsible for ', '').replace('worked on ', '')}, driving measurable impact across the organization`;
+  if (!ANTHROPIC_KEY) {
+    await new Promise(r => setTimeout(r, 1000));
+    return `Spearheaded ${original.toLowerCase().replace('responsible for ', '').replace('worked on ', '')}, driving measurable impact across the organization`;
+  }
+  const raw = await callLLM(
+    'Rewrite the following resume bullet point to be more impactful and quantified. Return only the rewritten bullet, no preamble.',
+    original
+  );
+  return raw.trim();
 }
 
 export async function generateSummary(resumeData) {
-  await delay(1200);
-  return 'Results-driven software professional with expertise in full-stack development, specializing in building scalable web applications. Proven track record of delivering high-impact solutions and collaborating with cross-functional teams.';
-}
-
-export async function getATSScore(resumeData) {
-  await delay(1000);
-  return {
-    overall: 72,
-    categories: [
-      { name: 'Contact Info', score: 90 },
-      { name: 'Work Experience', score: 75 },
-      { name: 'Skills Match', score: 60 },
-      { name: 'Keywords', score: 55 },
-      { name: 'Formatting', score: 85 },
-    ],
-    missingKeywords: ['TypeScript', 'PostgreSQL', 'Docker', 'GraphQL'],
-    formattingIssues: [
-      'Consider using standard section headers (e.g., "Work Experience" instead of custom names)',
-      'Ensure consistent date formatting throughout',
-    ],
-    suggestions: [
-      'Add more quantified achievements to bullet points',
-      'Include TypeScript in your skills section',
-      'Add relevant keywords from the job description',
-      'Use action verbs at the start of each bullet point',
-    ],
-  };
+  if (!ANTHROPIC_KEY) {
+    await new Promise(r => setTimeout(r, 1200));
+    return 'Results-driven software professional with expertise in full-stack development, specializing in building scalable web applications. Proven track record of delivering high-impact solutions and collaborating with cross-functional teams.';
+  }
+  const resumeText = resumeToText(resumeData);
+  const raw = await callLLM(
+    'Write a professional summary for this resume in 2-3 sentences. Match the candidate\'s actual experience. Return only the summary text.',
+    resumeText
+  );
+  return raw.trim();
 }
 
 export async function optimizeBullets(bullets) {
-  await delay(1500);
-  return bullets.map(b =>
-    `Engineered and delivered ${b.toLowerCase().replace('responsible for ', '').replace('worked on ', '')}, resulting in 25% improvement in team productivity`
+  if (!ANTHROPIC_KEY) {
+    await new Promise(r => setTimeout(r, 1500));
+    return bullets.map(b =>
+      `Engineered and delivered ${b.toLowerCase().replace('responsible for ', '').replace('worked on ', '')}, resulting in 25% improvement in team productivity`
+    );
+  }
+  const raw = await callLLM(
+    'Rewrite each of these resume bullet points to be more impactful and quantified. Return a JSON array of strings, one per bullet. No preamble.',
+    JSON.stringify(bullets)
   );
+  const parsed = parseJSON(raw);
+  return Array.isArray(parsed) ? parsed : bullets;
 }
