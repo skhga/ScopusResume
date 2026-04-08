@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { Menu, X, LogOut, Settings } from 'lucide-react';
-import logo from '../../assets/logo.svg';
+import logo from '../../assets/logo.png';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function Navbar() {
@@ -21,7 +21,19 @@ export default function Navbar() {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2">
-              <img src={logo} alt="ScopusResume logo" className="w-auto" style={{ height: '40px' }} />
+              <div
+                role="img"
+                aria-label="ScopusResume logo"
+                style={{
+                  height: '32px',
+                  width: '30px',
+                  backgroundImage: `url(${logo})`,
+                  backgroundSize: '103px 103px',
+                  backgroundPosition: '-11px -36px',
+                  backgroundRepeat: 'no-repeat',
+                  flexShrink: 0,
+                }}
+              />
               <span className="text-xl font-bold text-gray-900">Scopus<span className="text-brand-600">Resume</span></span>
             </Link>
             {isAuthenticated && (
