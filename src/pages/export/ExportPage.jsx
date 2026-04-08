@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Download, FileType } from 'lucide-react';
 import { useResume } from '../../hooks/useResume';
 import { EXPORT_FORMATS, LANGUAGES } from '../../utils/constants';
 import { TEMPLATES } from '../../constants/templates';
+import { resumeToText } from '../../utils/resumeToText';
 import Button from '../../components/common/Button';
 import Card from '../../components/common/Card';
 import ResumeTemplate from '../../components/resume/ResumeTemplate';
@@ -20,6 +21,7 @@ export default function ExportPage() {
   const [fontSize, setFontSize] = useState('medium');
   const [colorAccent, setColorAccent] = useState('#0abab5');
   const [exporting, setExporting] = useState(false);
+  const previewRef = useRef(null);
 
   if (!resume) {
     return (
@@ -32,10 +34,36 @@ export default function ExportPage() {
 
   const handleExport = async () => {
     setExporting(true);
-    // Simulate export delay
-    await new Promise(r => setTimeout(r, 2000));
-    setExporting(false);
-    alert(`Export complete! Your resume would be downloaded as ${format.toUpperCase()}.\n\n(In production, this would generate an actual file.)`);
+    const safeName = (resume.name || 'resume').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    try {
+      if (format === 'txt') {
+        const text = resumeToText(resume);
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${safeName}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else if (format === 'pdf') {
+        const html2pdf = (await import('html2pdf.js')).default;
+        await html2pdf()
+          .set({
+            margin: 10,
+            filename: `${safeName}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          })
+          .from(previewRef.current)
+          .save();
+      } else {
+        // docx — placeholder; requires a server-side generator
+        alert('DOCX export requires a server-side component. PDF and TXT are available now.');
+      }
+    } finally {
+      setExporting(false);
+    }
   };
 
   const colors = ['#0abab5', '#059669', '#7c3aed', '#dc2626', '#ea580c', '#334155'];
@@ -114,7 +142,7 @@ export default function ExportPage() {
 
         {/* Preview */}
         <div className="lg:col-span-2">
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-8 min-h-[600px] sticky top-6">
+          <div ref={previewRef} className="bg-white border border-gray-200 rounded-lg shadow-sm p-8 min-h-[600px] sticky top-6">
             <ResumeTemplate resume={resume} />
           </div>
         </div>
