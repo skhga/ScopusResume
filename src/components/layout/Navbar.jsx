@@ -47,8 +47,8 @@ export default function Navbar() {
               </div>
             ) : (
               <>
-                <Link to="/signin" className="text-sm font-medium text-gray-600 hover:text-gray-900">Sign In</Link>
-                <Link to="/signup" className="btn-primary text-sm">Get Started</Link>
+                <Link to="/signin" className="inline-flex items-center px-3 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-50 transition min-h-[44px]">Sign In</Link>
+                <Link to="/signup" className="btn-primary text-sm py-2.5 min-h-[44px] inline-flex items-center">Get Started</Link>
               </>
             )}
             <button className="md:hidden p-2" onClick={() => setMobileOpen(!mobileOpen)}>{mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>

@@ -135,7 +135,7 @@ export default function LandingPage() {
                   <span className="text-brand-600 text-xs font-semibold uppercase tracking-wider">{label}</span>
                   <h3 className="text-2xl font-bold text-gray-900 mt-2 mb-3">{heading}</h3>
                   <p className="text-gray-600 leading-relaxed">{body}</p>
-                  <Link to="/signup" className="inline-flex items-center text-brand-600 font-medium text-sm mt-4 hover:underline">
+                  <Link to="/signup" className="inline-flex items-center text-brand-600 font-medium text-sm mt-4 hover:underline py-2 min-h-[44px]">
                     Try it free <ChevronRight className="h-4 w-4 ml-0.5" />
                   </Link>
                 </div>

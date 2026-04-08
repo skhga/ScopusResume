@@ -10,10 +10,10 @@ export default function Footer() {
             <FileText className="h-5 w-5 text-brand-600" />
             <span className="font-semibold text-gray-900">ScopusResume</span>
           </div>
-          <div className="flex space-x-6 text-sm text-gray-500">
-            <a href="#about" className="hover:text-gray-900">About</a>
-            <a href="#privacy" className="hover:text-gray-900">Privacy</a>
-            <a href="#terms" className="hover:text-gray-900">Terms</a>
+          <div className="flex space-x-2 text-sm text-gray-500">
+            <a href="#about" className="hover:text-gray-900 px-3 py-2.5 min-h-[44px] inline-flex items-center rounded hover:bg-gray-50 transition">About</a>
+            <a href="#privacy" className="hover:text-gray-900 px-3 py-2.5 min-h-[44px] inline-flex items-center rounded hover:bg-gray-50 transition">Privacy</a>
+            <a href="#terms" className="hover:text-gray-900 px-3 py-2.5 min-h-[44px] inline-flex items-center rounded hover:bg-gray-50 transition">Terms</a>
           </div>
           <p className="text-sm text-gray-400">&copy; 2026 ScopusResume. All rights reserved.</p>
         </div>
