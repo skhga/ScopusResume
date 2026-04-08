@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, CheckCircle2, ChevronRight } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ChevronRight, Zap, FileSearch, Sparkles } from 'lucide-react';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
 import GeometricHero from '../../components/ui/geometric-hero';
@@ -37,9 +37,24 @@ const FEATURES = [
 ];
 
 const STEPS = [
-  { num: '1', title: 'Build once', body: 'Fill in your experience through a guided 8-step builder. Takes about 8 minutes.' },
-  { num: '2', title: 'Paste a job description', body: 'Drop in the JD. The AI compares it to your resume and highlights the gaps.' },
-  { num: '3', title: 'Apply the suggestions', body: 'Review the diffs, accept what makes sense, download your tailored resume.' },
+  {
+    num: '01',
+    icon: Zap,
+    title: 'Build once',
+    body: 'Fill in your experience through a guided 8-step builder. Takes about 8 minutes.',
+  },
+  {
+    num: '02',
+    icon: FileSearch,
+    title: 'Paste a job description',
+    body: 'Drop in the JD. The AI compares it to your resume and highlights the gaps.',
+  },
+  {
+    num: '03',
+    icon: Sparkles,
+    title: 'Apply the suggestions',
+    body: 'Review the diffs, accept what makes sense, download your tailored resume.',
+  },
 ];
 
 const TESTIMONIALS = [
@@ -169,20 +184,54 @@ export default function LandingPage() {
       </section>
 
       {/* How it works */}
-      <section id="how-it-works" className="py-20 bg-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-12">How it works</h2>
-          <div className="space-y-8">
-            {STEPS.map(({ num, title, body }) => (
-              <div key={num} className="flex gap-6">
-                <div className="w-8 h-8 rounded-full bg-brand-600 text-white text-sm font-bold flex items-center justify-center shrink-0 mt-0.5">
+      <section id="how-it-works" className="py-24 bg-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+
+          {/* Badge */}
+          <div className="flex justify-center mb-6">
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-xs font-semibold uppercase tracking-widest">
+              <Zap className="h-3.5 w-3.5 fill-brand-500 text-brand-500" />
+              How it works
+            </span>
+          </div>
+
+          {/* Heading */}
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-extrabold text-gray-900 tracking-tight">
+              Simple{' '}
+              <span className="text-brand-600">3-Step</span>
+              {' '}Process
+            </h2>
+            <p className="mt-4 text-gray-500 text-lg max-w-xl mx-auto">
+              From blank resume to tailored applications — in minutes, not hours.
+            </p>
+          </div>
+
+          {/* Cards */}
+          <div className="grid md:grid-cols-3 gap-6">
+            {STEPS.map(({ num, icon: Icon, title, body }, i) => (
+              <motion.div
+                key={num}
+                initial={{ opacity: 0, y: 32 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-60px' }}
+                transition={{ duration: 0.55, delay: i * 0.12, ease: [0.25, 0.4, 0.25, 1] }}
+                className="relative flex flex-col items-center text-center p-8 rounded-2xl border border-gray-200 bg-white hover:border-brand-200 hover:shadow-lg hover:shadow-brand-600/5 transition-all duration-300"
+              >
+                {/* Ghost step number */}
+                <span className="absolute top-5 right-6 text-6xl font-extrabold text-gray-100 select-none leading-none">
                   {num}
+                </span>
+
+                {/* Icon square */}
+                <div className="relative z-10 w-16 h-16 rounded-2xl bg-brand-600 flex items-center justify-center mb-6 shadow-lg shadow-brand-600/30">
+                  <Icon className="h-8 w-8 text-white" strokeWidth={1.75} />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 text-lg">{title}</h3>
-                  <p className="text-gray-600 mt-1">{body}</p>
-                </div>
-              </div>
+
+                {/* Text */}
+                <h3 className="text-lg font-bold text-gray-900 mb-3">{title}</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">{body}</p>
+              </motion.div>
             ))}
           </div>
         </div>
