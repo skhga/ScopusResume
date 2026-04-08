@@ -139,10 +139,10 @@ export default function LandingPage() {
                     Try it free <ChevronRight className="h-4 w-4 ml-0.5" />
                   </Link>
                 </div>
-                <div className={`bg-white rounded-xl border border-gray-200 p-8 h-40 flex items-center justify-center ${i % 2 === 1 ? 'lg:order-1' : ''}`}>
-                  <div className="text-gray-200 text-sm text-center">
-                    <div className="text-4xl font-bold text-brand-100">{['87%', 'diff', 'PDF'][i]}</div>
-                    <div className="text-gray-300 mt-1">{['ATS match', 'tailored changes', 'clean export'][i]}</div>
+                <div className={`bg-brand-50 rounded-xl border border-brand-100 p-8 h-40 flex items-center justify-center ${i % 2 === 1 ? 'lg:order-1' : ''}`}>
+                  <div className="text-center">
+                    <div className="text-5xl font-extrabold text-brand-600">{['87%', 'diff →', 'PDF'][i]}</div>
+                    <div className="text-brand-700 font-medium mt-2 text-sm uppercase tracking-wider">{['ATS match score', 'tailored changes', 'clean export'][i]}</div>
                   </div>
                 </div>
               </div>
