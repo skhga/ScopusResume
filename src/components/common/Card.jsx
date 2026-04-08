@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function Card({ children, className = '', title, subtitle, headerAction }) {
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-6 ${className}`}>
+    <div className={`card ${className}`}>
       {(title || headerAction) && (
         <div className="flex items-center justify-between mb-4">
           <div>
