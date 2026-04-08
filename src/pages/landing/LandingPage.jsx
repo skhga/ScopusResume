@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, ChevronRight } from 'lucide-react';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
+import WarpShaderHero from '../../components/ui/warp-shader';
 
 const PAIN_POINTS = [
   'Spent hours on your resume, still no callbacks',
@@ -45,86 +46,86 @@ export default function LandingPage() {
     <div className="min-h-screen bg-white">
       <Navbar />
 
-      {/* Hero — 2 col, left-heavy */}
-      <div style={{ background: 'linear-gradient(135deg, #0d9488 0%, #ff6584 60%, #f59e0b 100%)' }}>
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20 lg:pt-24 lg:pb-28">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div>
-            <p className="text-white/80 text-sm font-semibold uppercase tracking-wider mb-4">Resume builder for job seekers</p>
-            <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
-              Stop getting rejected before anyone reads your resume
-            </h1>
-            <div className="mt-6 space-y-3">
-              {PAIN_POINTS.map(p => (
-                <div key={p} className="flex items-start gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-white/90 mt-0.5 shrink-0" />
-                  <p className="text-white/80">{p}</p>
-                </div>
-              ))}
+      {/* Hero — Warp shader background */}
+      <WarpShaderHero>
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20 lg:pt-24 lg:pb-28">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <p className="text-white/80 text-sm font-semibold uppercase tracking-wider mb-4">Resume builder for job seekers</p>
+              <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
+                Stop getting rejected before anyone reads your resume
+              </h1>
+              <div className="mt-6 space-y-3">
+                {PAIN_POINTS.map(p => (
+                  <div key={p} className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-white/90 mt-0.5 shrink-0" />
+                    <p className="text-white/80">{p}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-10 flex flex-col sm:flex-row gap-3">
+                <Link to="/signup" className="inline-flex items-center justify-center bg-white text-brand-700 hover:bg-brand-50 font-bold px-8 py-3 rounded-lg transition shadow-lg hover:shadow-xl text-base min-h-[44px]">
+                  Build my resume free <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
+                <a href="#how-it-works" className="inline-flex items-center justify-center border-2 border-white/60 text-white hover:bg-white/10 font-medium px-8 py-3 rounded-lg transition text-base min-h-[44px]">
+                  See how it works
+                </a>
+              </div>
+              <p className="text-white/60 text-sm mt-4">No credit card. Takes 8 minutes.</p>
             </div>
-            <div className="mt-10 flex flex-col sm:flex-row gap-3">
-              <Link to="/signup" className="inline-flex items-center justify-center bg-white text-brand-700 hover:bg-brand-50 font-bold px-8 py-3 rounded-lg transition shadow-lg hover:shadow-xl text-base min-h-[44px]">
-                Build my resume free <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
-              <a href="#how-it-works" className="inline-flex items-center justify-center border-2 border-white/60 text-white hover:bg-white/10 font-medium px-8 py-3 rounded-lg transition text-base min-h-[44px]">
-                See how it works
-              </a>
-            </div>
-            <p className="text-white/60 text-sm mt-4">No credit card. Takes 8 minutes.</p>
-          </div>
 
-          {/* Preview card */}
-          <div className="hidden lg:block">
-            <div className="bg-white/95 rounded-2xl border border-white/20 p-6 shadow-2xl">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-3 h-3 rounded-full bg-red-300" />
-                <div className="w-3 h-3 rounded-full bg-yellow-300" />
-                <div className="w-3 h-3 rounded-full bg-green-300" />
-              </div>
-              {/* Mock resume preview */}
-              <div className="bg-white rounded-lg p-5 shadow-sm border border-gray-100 text-xs font-mono space-y-3">
-                <div className="text-center border-b pb-2">
-                  <div className="h-3 bg-gray-900 rounded w-32 mx-auto mb-1" />
-                  <div className="h-2 bg-gray-300 rounded w-48 mx-auto" />
+            {/* Preview card */}
+            <div className="hidden lg:block">
+              <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-white/20 p-6 shadow-2xl">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-3 h-3 rounded-full bg-red-300" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-300" />
+                  <div className="w-3 h-3 rounded-full bg-green-300" />
                 </div>
-                <div>
-                  <div className="h-2 bg-brand-600 rounded w-20 mb-1" />
-                  <div className="space-y-1">
-                    <div className="h-1.5 bg-gray-200 rounded w-full" />
-                    <div className="h-1.5 bg-gray-200 rounded w-5/6" />
-                    <div className="h-1.5 bg-gray-200 rounded w-4/6" />
+                {/* Mock resume preview */}
+                <div className="bg-white rounded-lg p-5 shadow-sm border border-gray-100 text-xs font-mono space-y-3">
+                  <div className="text-center border-b pb-2">
+                    <div className="h-3 bg-gray-900 rounded w-32 mx-auto mb-1" />
+                    <div className="h-2 bg-gray-300 rounded w-48 mx-auto" />
                   </div>
-                </div>
-                <div>
-                  <div className="h-2 bg-brand-600 rounded w-24 mb-1" />
-                  <div className="space-y-1">
-                    <div className="flex justify-between mb-0.5">
-                      <div className="h-2 bg-gray-700 rounded w-28" />
-                      <div className="h-1.5 bg-gray-300 rounded w-16" />
+                  <div>
+                    <div className="h-2 bg-brand-600 rounded w-20 mb-1" />
+                    <div className="space-y-1">
+                      <div className="h-1.5 bg-gray-200 rounded w-full" />
+                      <div className="h-1.5 bg-gray-200 rounded w-5/6" />
+                      <div className="h-1.5 bg-gray-200 rounded w-4/6" />
                     </div>
-                    <div className="h-1.5 bg-gray-200 rounded w-full" />
-                    <div className="h-1.5 bg-gray-200 rounded w-5/6" />
+                  </div>
+                  <div>
+                    <div className="h-2 bg-brand-600 rounded w-24 mb-1" />
+                    <div className="space-y-1">
+                      <div className="flex justify-between mb-0.5">
+                        <div className="h-2 bg-gray-700 rounded w-28" />
+                        <div className="h-1.5 bg-gray-300 rounded w-16" />
+                      </div>
+                      <div className="h-1.5 bg-gray-200 rounded w-full" />
+                      <div className="h-1.5 bg-gray-200 rounded w-5/6" />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="h-2 bg-brand-600 rounded w-16 mb-1" />
+                    <div className="flex flex-wrap gap-1">
+                      {['React', 'TypeScript', 'Node.js', 'PostgreSQL'].map(s => (
+                        <span key={s} className="bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded text-xs">{s}</span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <div className="h-2 bg-brand-600 rounded w-16 mb-1" />
-                  <div className="flex flex-wrap gap-1">
-                    {['React', 'TypeScript', 'Node.js', 'PostgreSQL'].map(s => (
-                      <span key={s} className="bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded text-xs">{s}</span>
-                    ))}
-                  </div>
+                {/* ATS score badge */}
+                <div className="mt-3 flex items-center justify-between bg-green-50 border border-green-100 rounded-lg px-4 py-2.5">
+                  <span className="text-sm text-green-800 font-medium">ATS Match Score</span>
+                  <span className="text-2xl font-bold text-green-700">87%</span>
                 </div>
-              </div>
-              {/* ATS score badge */}
-              <div className="mt-3 flex items-center justify-between bg-green-50 border border-green-100 rounded-lg px-4 py-2.5">
-                <span className="text-sm text-green-800 font-medium">ATS Match Score</span>
-                <span className="text-2xl font-bold text-green-700">87%</span>
               </div>
             </div>
           </div>
-        </div>
-      </section>
-      </div>
+        </section>
+      </WarpShaderHero>
 
       {/* Features — alternating rows */}
       <section className="bg-gray-50 py-20">
