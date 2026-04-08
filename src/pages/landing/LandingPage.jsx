@@ -56,7 +56,7 @@ export default function LandingPage() {
             <div className="mt-6 space-y-3">
               {PAIN_POINTS.map(p => (
                 <div key={p} className="flex items-start gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-brand-500 mt-0.5 shrink-0" />
+                  <CheckCircle2 className="h-5 w-5 text-secondary-500 mt-0.5 shrink-0" />
                   <p className="text-gray-600">{p}</p>
                 </div>
               ))}
@@ -189,11 +189,11 @@ export default function LandingPage() {
       </section>
 
       {/* CTA */}
-      <section className="py-20 bg-gray-900">
+      <section className="py-20" style={{ background: 'linear-gradient(135deg, #0d9488 0%, #ff6584 50%, #f59e0b 100%)' }}>
         <div className="max-w-2xl mx-auto text-center px-4">
           <h2 className="text-3xl font-bold text-white mb-3">Your next interview is one resume away</h2>
-          <p className="text-gray-400 mb-8">Build an ATS-optimized resume in 8 minutes. Free to start.</p>
-          <Link to="/signup" className="inline-flex items-center bg-brand-500 hover:bg-brand-600 text-white font-semibold px-8 py-3 rounded-lg transition">
+          <p className="text-white/80 mb-8">Build an ATS-optimized resume in 8 minutes. Free to start.</p>
+          <Link to="/signup" className="inline-flex items-center bg-white text-brand-700 hover:bg-brand-50 font-semibold px-8 py-3 rounded-lg transition shadow-lg hover:shadow-xl">
             Get started free <ArrowRight className="ml-2 h-5 w-5" />
           </Link>
         </div>
