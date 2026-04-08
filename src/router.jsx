@@ -20,6 +20,7 @@ import JDAnalyzerPage from './pages/optimizer/JDAnalyzerPage';
 import AIOptimizationPage from './pages/optimizer/AIOptimizationPage';
 import ATSOptimizerPage from './pages/optimizer/ATSOptimizerPage';
 import ExportPage from './pages/export/ExportPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 function RootLayout() {
   return (
@@ -35,6 +36,7 @@ function RootLayout() {
 const router = createBrowserRouter([
   {
     element: <RootLayout />,
+    errorElement: <NotFoundPage />,
     children: [
       { path: '/', element: <LandingPage /> },
 
@@ -50,6 +52,7 @@ const router = createBrowserRouter([
       {
         path: '/app',
         element: <RequireAuth><AppLayout /></RequireAuth>,
+        errorElement: <NotFoundPage />,
         children: [
           { index: true, element: <DashboardPage /> },
           { path: 'dashboard', element: <DashboardPage /> },
