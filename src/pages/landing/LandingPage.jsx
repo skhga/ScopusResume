@@ -133,7 +133,7 @@ export default function LandingPage() {
           <h2 className="text-3xl font-bold text-gray-900 mb-16 max-w-lg">Built for the specific problems job seekers actually face</h2>
           <div className="space-y-16">
             {FEATURES.map(({ label, heading, body }, i) => (
-              <div key={label} className={`grid lg:grid-cols-2 gap-10 items-center ${i % 2 === 1 ? 'lg:flex-row-reverse' : ''}`}>
+              <div key={label} className="grid lg:grid-cols-2 gap-10 items-center">
                 <div className={i % 2 === 1 ? 'lg:order-2' : ''}>
                   <span className="text-brand-600 text-xs font-semibold uppercase tracking-wider">{label}</span>
                   <h3 className="text-2xl font-bold text-gray-900 mt-2 mb-3">{heading}</h3>
