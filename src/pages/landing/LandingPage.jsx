@@ -1,9 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { ArrowRight, CheckCircle2, ChevronRight } from 'lucide-react';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
-import WarpShaderHero from '../../components/ui/warp-shader';
+import GeometricHero from '../../components/ui/geometric-hero';
+
+const fadeUp = (i = 0) => ({
+  initial: { opacity: 0, y: 24 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.7, delay: 0.4 + i * 0.15, ease: [0.25, 0.4, 0.25, 1] },
+});
 
 const PAIN_POINTS = [
   'Spent hours on your resume, still no callbacks',
@@ -46,37 +53,44 @@ export default function LandingPage() {
     <div className="min-h-screen bg-white">
       <Navbar />
 
-      {/* Hero — Warp shader background */}
-      <WarpShaderHero>
+      {/* Hero — Geometric animated background */}
+      <GeometricHero>
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20 lg:pt-24 lg:pb-28">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <p className="text-white/80 text-sm font-semibold uppercase tracking-wider mb-4">Resume builder for job seekers</p>
-              <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
+              <motion.p {...fadeUp(0)} className="text-brand-300 text-sm font-semibold uppercase tracking-widest mb-4">
+                Resume builder for job seekers
+              </motion.p>
+              <motion.h1 {...fadeUp(1)} className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
                 Stop getting rejected before anyone reads your resume
-              </h1>
-              <div className="mt-6 space-y-3">
+              </motion.h1>
+              <motion.div {...fadeUp(2)} className="mt-6 space-y-3">
                 {PAIN_POINTS.map(p => (
                   <div key={p} className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-white/90 mt-0.5 shrink-0" />
-                    <p className="text-white/80">{p}</p>
+                    <CheckCircle2 className="h-5 w-5 text-brand-300 mt-0.5 shrink-0" />
+                    <p className="text-white/75">{p}</p>
                   </div>
                 ))}
-              </div>
-              <div className="mt-10 flex flex-col sm:flex-row gap-3">
+              </motion.div>
+              <motion.div {...fadeUp(3)} className="mt-10 flex flex-col sm:flex-row gap-3">
                 <Link to="/signup" className="inline-flex items-center justify-center bg-white text-brand-700 hover:bg-brand-50 font-bold px-8 py-3 rounded-lg transition shadow-lg hover:shadow-xl text-base min-h-[44px]">
                   Build my resume free <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
-                <a href="#how-it-works" className="inline-flex items-center justify-center border-2 border-white/60 text-white hover:bg-white/10 font-medium px-8 py-3 rounded-lg transition text-base min-h-[44px]">
+                <a href="#how-it-works" className="inline-flex items-center justify-center border-2 border-white/40 text-white hover:bg-white/10 font-medium px-8 py-3 rounded-lg transition text-base min-h-[44px]">
                   See how it works
                 </a>
-              </div>
-              <p className="text-white/60 text-sm mt-4">No credit card. Takes 8 minutes.</p>
+              </motion.div>
+              <motion.p {...fadeUp(4)} className="text-white/40 text-sm mt-4">No credit card. Takes 8 minutes.</motion.p>
             </div>
 
             {/* Preview card */}
-            <div className="hidden lg:block">
-              <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-white/20 p-6 shadow-2xl">
+            <motion.div
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.9, delay: 0.6, ease: [0.25, 0.4, 0.25, 1] }}
+              className="hidden lg:block"
+            >
+              <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-white/10 p-6 shadow-2xl shadow-black/40">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-3 h-3 rounded-full bg-red-300" />
                   <div className="w-3 h-3 rounded-full bg-yellow-300" />
@@ -122,10 +136,10 @@ export default function LandingPage() {
                   <span className="text-2xl font-bold text-green-700">87%</span>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         </section>
-      </WarpShaderHero>
+      </GeometricHero>
 
       {/* Features — alternating rows */}
       <section className="bg-gray-50 py-20">
