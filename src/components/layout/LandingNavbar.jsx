@@ -11,6 +11,51 @@ const NAV_LINKS = [
   { label: 'Pricing',      href: '#pricing' },
 ];
 
+const logoStyle = {
+  height: '28px', width: '26px',
+  backgroundImage: `url(${logo})`,
+  backgroundSize: '90px 90px',
+  backgroundPosition: '-10px -32px',
+  backgroundRepeat: 'no-repeat',
+  flexShrink: 0,
+};
+
+function NavLogo({ scrolled, textSize = 'text-lg' }) {
+  return (
+    <Link to="/" className="flex items-center gap-2 shrink-0">
+      <div style={logoStyle} role="img" aria-label="ScopusResume logo" />
+      <span
+        className={`${textSize} font-extrabold`}
+        style={{ color: scrolled ? '#0f172a' : '#ffffff' }}
+      >
+        Scopus<span className="text-brand-400">Resume</span>
+      </span>
+    </Link>
+  );
+}
+
+function NavLink({ label, href, scrolled }) {
+  const [hovered, setHovered] = useState(false);
+  const base = scrolled ? '#475569' : 'rgba(255,255,255,0.85)';
+  const hover = scrolled ? '#0f172a' : '#fff';
+  const hoverBg = scrolled ? '#f8fafc' : 'rgba(255,255,255,0.08)';
+
+  return (
+    <a
+      href={href}
+      className="px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150"
+      style={{
+        color: hovered ? hover : base,
+        background: hovered ? hoverBg : 'transparent',
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {label}
+    </a>
+  );
+}
+
 export default function LandingNavbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -34,44 +79,18 @@ export default function LandingNavbar() {
             : 'none',
           paddingTop: scrolled ? '8px' : '0px',
           paddingBottom: scrolled ? '8px' : '0px',
+          backdropFilter: scrolled ? 'blur(12px)' : 'blur(0px)',
         }}
         transition={{ type: 'spring', stiffness: 200, damping: 50 }}
-        style={{ backdropFilter: scrolled ? 'blur(12px)' : 'none', border: '1px solid' }}
+        style={{ border: '1px solid' }}
         className="pointer-events-auto hidden md:flex items-center justify-between px-6 py-3"
       >
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 shrink-0">
-          <div
-            style={{
-              height: '28px', width: '26px',
-              backgroundImage: `url(${logo})`,
-              backgroundSize: '90px 90px',
-              backgroundPosition: '-10px -32px',
-              backgroundRepeat: 'no-repeat',
-              flexShrink: 0,
-            }}
-          />
-          <span
-            className="text-lg font-extrabold"
-            style={{ color: scrolled ? '#0f172a' : '#ffffff' }}
-          >
-            Scopus<span className="text-brand-400">Resume</span>
-          </span>
-        </Link>
+        <NavLogo scrolled={scrolled} />
 
         {/* Links */}
         <div className="flex items-center gap-1">
           {NAV_LINKS.map(({ label, href }) => (
-            <a
-              key={href}
-              href={href}
-              className="px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150"
-              style={{ color: scrolled ? '#475569' : 'rgba(255,255,255,0.85)' }}
-              onMouseEnter={e => { e.currentTarget.style.color = scrolled ? '#0f172a' : '#fff'; e.currentTarget.style.background = scrolled ? '#f8fafc' : 'rgba(255,255,255,0.08)'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = scrolled ? '#475569' : 'rgba(255,255,255,0.85)'; e.currentTarget.style.background = 'transparent'; }}
-            >
-              {label}
-            </a>
+            <NavLink key={href} label={label} href={href} scrolled={scrolled} />
           ))}
         </div>
 
@@ -106,33 +125,19 @@ export default function LandingNavbar() {
             borderColor: scrolled ? 'rgba(226,232,240,0.8)' : 'rgba(255,255,255,0)',
             boxShadow: scrolled ? '0 4px 24px rgba(0,0,0,0.08)' : 'none',
             borderRadius: scrolled ? '16px' : '0px',
+            backdropFilter: scrolled ? 'blur(12px)' : 'blur(0px)',
           }}
           transition={{ type: 'spring', stiffness: 200, damping: 50 }}
-          style={{ backdropFilter: scrolled ? 'blur(12px)' : 'none', border: '1px solid' }}
+          style={{ border: '1px solid' }}
           className="flex items-center justify-between px-4 py-3"
         >
-          <Link to="/" className="flex items-center gap-2">
-            <div
-              style={{
-                height: '28px', width: '26px',
-                backgroundImage: `url(${logo})`,
-                backgroundSize: '90px 90px',
-                backgroundPosition: '-10px -32px',
-                backgroundRepeat: 'no-repeat',
-              }}
-            />
-            <span
-              className="text-base font-extrabold"
-              style={{ color: scrolled ? '#0f172a' : '#ffffff' }}
-            >
-              Scopus<span className="text-brand-400">Resume</span>
-            </span>
-          </Link>
+          <NavLogo scrolled={scrolled} textSize="text-base" />
           <button
             onClick={() => setMobileOpen(v => !v)}
             className="p-2 rounded-lg"
             style={{ color: scrolled ? '#475569' : '#ffffff' }}
             aria-label="Toggle menu"
+            aria-expanded={mobileOpen}
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
