@@ -2,10 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, CheckCircle2, ChevronRight, Zap, FileSearch, Sparkles } from 'lucide-react';
-import Navbar from '../../components/layout/Navbar';
+import LandingNavbar from '../../components/layout/LandingNavbar';
 import Footer from '../../components/layout/Footer';
 import GeometricHero from '../../components/ui/geometric-hero';
 import TestimonialsMarquee from '../../components/common/TestimonialsMarquee';
+import BentoFeatures from '../../components/common/BentoFeatures';
 
 const fadeUp = (i = 0) => ({
   initial: { opacity: 0, y: 24 },
@@ -62,11 +63,11 @@ const STEPS = [
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white">
-      <Navbar />
+      <LandingNavbar />
 
       {/* Hero — Geometric animated background */}
       <GeometricHero>
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20 lg:pt-24 lg:pb-28">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-20 lg:pt-32 lg:pb-28">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <motion.p {...fadeUp(0)} className="text-brand-300 text-sm font-semibold uppercase tracking-widest mb-4">
@@ -152,32 +153,10 @@ export default function LandingPage() {
         </section>
       </GeometricHero>
 
-      {/* Features — alternating rows */}
-      <section className="bg-gray-50 py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-16 max-w-lg">Built for the specific problems job seekers actually face</h2>
-          <div className="space-y-16">
-            {FEATURES.map(({ label, heading, body }, i) => (
-              <div key={label} className="grid lg:grid-cols-2 gap-10 items-center">
-                <div className={i % 2 === 1 ? 'lg:order-2' : ''}>
-                  <span className="text-brand-600 text-xs font-semibold uppercase tracking-wider">{label}</span>
-                  <h3 className="text-2xl font-bold text-gray-900 mt-2 mb-3">{heading}</h3>
-                  <p className="text-gray-600 leading-relaxed">{body}</p>
-                  <Link to="/signup" className="inline-flex items-center text-brand-600 font-medium text-sm mt-4 hover:underline py-2 min-h-[44px]">
-                    Try it free <ChevronRight className="h-4 w-4 ml-0.5" />
-                  </Link>
-                </div>
-                <div className={`bg-brand-50 rounded-xl border border-brand-100 p-8 h-40 flex items-center justify-center ${i % 2 === 1 ? 'lg:order-1' : ''}`}>
-                  <div className="text-center">
-                    <div className="text-5xl font-extrabold text-brand-600">{['87%', 'diff →', 'PDF'][i]}</div>
-                    <div className="text-brand-700 font-medium mt-2 text-sm uppercase tracking-wider">{['ATS match score', 'tailored changes', 'clean export'][i]}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Features — animated bento grid */}
+      <div id="features">
+        <BentoFeatures />
+      </div>
 
       {/* How it works */}
       <section id="how-it-works" className="py-24 bg-white">
@@ -234,7 +213,7 @@ export default function LandingPage() {
       </section>
 
       {/* Testimonials — infinite marquee */}
-      <section className="py-20 bg-white overflow-hidden">
+      <section id="about" className="py-20 bg-white overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
           <div className="flex justify-center mb-4">
             <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-xs font-semibold uppercase tracking-widest">
@@ -251,6 +230,9 @@ export default function LandingPage() {
         </div>
         <TestimonialsMarquee speed={40} bgColor="white" />
       </section>
+
+      {/* Pricing placeholder anchor */}
+      <div id="pricing" />
 
       {/* CTA */}
       <section className="py-20 bg-brand-700">
