@@ -21,6 +21,7 @@ import AIOptimizationPage from './pages/optimizer/AIOptimizationPage';
 import ATSOptimizerPage from './pages/optimizer/ATSOptimizerPage';
 import ExportPage from './pages/export/ExportPage';
 import NotFoundPage from './pages/NotFoundPage';
+import PrivacyPolicy from './pages/legal/PrivacyPolicy';
 
 function RootLayout() {
   return (
@@ -39,6 +40,7 @@ const router = createBrowserRouter([
     errorElement: <NotFoundPage />,
     children: [
       { path: '/', element: <LandingPage /> },
+      { path: '/privacy', element: <PrivacyPolicy /> },
 
       {
         element: <AuthLayout />,

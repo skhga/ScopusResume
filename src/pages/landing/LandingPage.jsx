@@ -7,6 +7,7 @@ import Footer from '../../components/layout/Footer';
 import GeometricHero from '../../components/ui/geometric-hero';
 import TestimonialsMarquee from '../../components/common/TestimonialsMarquee';
 import BentoFeatures from '../../components/common/BentoFeatures';
+import CookieBanner from '../../components/common/CookieBanner';
 
 const fadeUp = (i = 0) => ({
   initial: { opacity: 0, y: 24 },
@@ -63,6 +64,7 @@ const STEPS = [
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white">
+      <CookieBanner />
       <LandingNavbar />
 
       {/* Hero — Geometric animated background */}

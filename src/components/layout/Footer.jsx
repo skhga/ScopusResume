@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import logo from '../../assets/logo.png';
 
 export default function Footer() {
@@ -12,7 +13,7 @@ export default function Footer() {
           </div>
           <div className="flex space-x-2 text-sm text-gray-500">
             <a href="#about" className="hover:text-gray-900 px-3 py-2.5 min-h-[44px] inline-flex items-center rounded hover:bg-gray-50 transition">About</a>
-            <a href="#privacy" className="hover:text-gray-900 px-3 py-2.5 min-h-[44px] inline-flex items-center rounded hover:bg-gray-50 transition">Privacy</a>
+            <Link to="/privacy" className="hover:text-gray-900 px-3 py-2.5 min-h-[44px] inline-flex items-center rounded hover:bg-gray-50 transition">Privacy Policy</Link>
             <a href="#terms" className="hover:text-gray-900 px-3 py-2.5 min-h-[44px] inline-flex items-center rounded hover:bg-gray-50 transition">Terms</a>
           </div>
           <p className="text-sm text-gray-400">&copy; 2026 ScopusResume. All rights reserved.</p>
