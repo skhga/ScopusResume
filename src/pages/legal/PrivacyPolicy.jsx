@@ -1,17 +1,9 @@
 // src/pages/legal/PrivacyPolicy.jsx
-import React from 'react';
 import { Link } from 'react-router-dom';
 import Footer from '../../components/layout/Footer';
 import logo from '../../assets/logo.png';
 
-const logoStyle = {
-  height: '28px', width: '26px',
-  backgroundImage: `url(${logo})`,
-  backgroundSize: '90px 90px',
-  backgroundPosition: '-10px -32px',
-  backgroundRepeat: 'no-repeat',
-  flexShrink: 0,
-};
+const PRIVACY_EMAIL = 'privacy@scopusresume.com';
 
 function Section({ title, children }) {
   return (
@@ -28,8 +20,8 @@ export default function PrivacyPolicy() {
       {/* Minimal header */}
       <header className="border-b border-gray-100 px-4 py-4">
         <div className="max-w-3xl mx-auto">
-          <Link to="/" className="inline-flex items-center gap-2">
-            <div style={logoStyle} role="img" aria-label="ScopusResume logo" />
+          <Link to="/" className="inline-flex items-center gap-2" aria-label="Go to homepage">
+            <img src={logo} alt="ScopusResume logo" style={{ height: 28, width: 'auto' }} />
             <span className="text-base font-extrabold text-gray-900">
               Scopus<span className="text-brand-600">Resume</span>
             </span>
@@ -117,8 +109,8 @@ export default function PrivacyPolicy() {
           </ul>
           <p>
             To exercise any of these rights, email us at{' '}
-            <a href="mailto:privacy@scopusresume.com" className="text-brand-600 hover:text-brand-700 underline underline-offset-2">
-              privacy@scopusresume.com
+            <a href={`mailto:${PRIVACY_EMAIL}`} className="text-brand-600 hover:text-brand-700 underline underline-offset-2">
+              {PRIVACY_EMAIL}
             </a>
             . We will respond within 30 days.
           </p>
@@ -135,8 +127,8 @@ export default function PrivacyPolicy() {
           </p>
           <p>
             To exercise your rights under CCPA, email{' '}
-            <a href="mailto:privacy@scopusresume.com" className="text-brand-600 hover:text-brand-700 underline underline-offset-2">
-              privacy@scopusresume.com
+            <a href={`mailto:${PRIVACY_EMAIL}`} className="text-brand-600 hover:text-brand-700 underline underline-offset-2">
+              {PRIVACY_EMAIL}
             </a>
             .
           </p>
@@ -160,15 +152,11 @@ export default function PrivacyPolicy() {
 
         <Section title="Contact">
           <p>
-            For privacy-related questions or requests, contact us at:
-          </p>
-          <p>
-            <a
-              href="mailto:privacy@scopusresume.com"
-              className="text-brand-600 hover:text-brand-700 font-medium underline underline-offset-2"
-            >
-              privacy@scopusresume.com
+            For privacy-related questions or requests, contact us at{' '}
+            <a href={`mailto:${PRIVACY_EMAIL}`} className="text-brand-600 hover:text-brand-700 font-medium underline underline-offset-2">
+              {PRIVACY_EMAIL}
             </a>
+            .
           </p>
         </Section>
       </main>
