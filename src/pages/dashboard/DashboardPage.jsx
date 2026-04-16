@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, FileText, BarChart3, Send, Eye, Pencil, Trash2, Sparkles, Search, Download } from 'lucide-react';
+import { Plus, FileText, BarChart3, Send, Eye, Trash2, Sparkles, Search, Download } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useResume } from '../../hooks/useResume';
 import Button from '../../components/common/Button';
@@ -8,8 +8,13 @@ import Card from '../../components/common/Card';
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { resumes, createResume, deleteResume, setCurrentResume } = useResume();
+  const { resumes, createResume, deleteResume, duplicateResume, setCurrentResume } = useResume();
   const navigate = useNavigate();
+
+  const scored = resumes.filter(r => r.atsScore != null);
+  const avgAts = scored.length > 0
+    ? Math.round(scored.reduce((sum, r) => sum + r.atsScore, 0) / scored.length)
+    : '—';
 
   const handleNew = async () => {
     const r = await createResume('Untitled Resume');
@@ -18,6 +23,14 @@ export default function DashboardPage() {
 
   const handleEdit = (id) => { setCurrentResume(id); navigate(`/app/builder/${id}`); };
   const handlePreview = (id) => { setCurrentResume(id); navigate(`/app/preview/${id}`); };
+  const handleDuplicate = async (id) => {
+    try {
+      const copy = await duplicateResume(id);
+      navigate(`/app/builder/${copy.id}`);
+    } catch (err) {
+      console.error('Duplicate failed:', err);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -30,7 +43,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { icon: FileText, label: 'Total Resumes', value: resumes.length, color: 'text-brand-600 bg-brand-100' },
-          { icon: BarChart3, label: 'Avg ATS Score', value: resumes.length > 0 ? '—' : '—', color: 'text-green-600 bg-green-100' },
+          { icon: BarChart3, label: 'Avg ATS Score', value: avgAts, color: 'text-green-600 bg-green-100' },
           { icon: Send, label: 'Applications', value: '0', color: 'text-purple-600 bg-purple-100' },
         ].map(s => (
           <Card key={s.label}>
@@ -53,14 +66,69 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {resumes.map(r => (
               <Card key={r.id}>
-                <div className="flex items-start justify-between mb-3">
-                  <div><h3 className="font-semibold text-gray-900">{r.name}</h3><p className="text-xs text-gray-500 mt-0.5">Last updated {new Date(r.updatedAt).toLocaleDateString()}</p></div>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Not scanned</span>
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900 truncate">{r.name}</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Updated {new Date(r.updatedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                    {/* Status badge */}
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      r.status === 'complete'
+                        ? 'bg-brand-100 text-brand-700'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {r.status === 'complete' ? 'Complete' : 'Draft'}
+                    </span>
+                    {/* ATS badge */}
+                    {r.atsScore != null ? (
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                        r.atsScore >= 75 ? 'bg-green-100 text-green-700' :
+                        r.atsScore >= 60 ? 'bg-yellow-100 text-yellow-700' :
+                                           'bg-red-100 text-red-700'
+                      }`}>
+                        ATS {Math.round(r.atsScore)}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400 px-2 py-0.5 rounded-full border border-gray-200">
+                        Not scored
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2 pt-3 border-t border-gray-100">
-                  <button onClick={() => handleEdit(r.id)} className="flex items-center text-sm text-gray-600 hover:text-brand-600"><Pencil className="h-3.5 w-3.5 mr-1" />Edit</button>
-                  <button onClick={() => handlePreview(r.id)} className="flex items-center text-sm text-gray-600 hover:text-brand-600"><Eye className="h-3.5 w-3.5 mr-1" />Preview</button>
-                  <button onClick={() => deleteResume(r.id)} className="flex items-center text-sm text-gray-600 hover:text-red-600 ml-auto"><Trash2 className="h-3.5 w-3.5 mr-1" />Delete</button>
+                <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-gray-100">
+                  <button
+                    onClick={() => handleEdit(r.id)}
+                    className="flex-1 text-xs py-1.5 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-center"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handlePreview(r.id)}
+                    className="flex-1 text-xs py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-center"
+                  >
+                    Preview
+                  </button>
+                  <button
+                    onClick={() => handleDuplicate(r.id)}
+                    className="flex-1 text-xs py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-center"
+                  >
+                    Duplicate
+                  </button>
+                  <button
+                    onClick={() => navigate(`/app/export/${r.id}`)}
+                    className="flex-1 text-xs py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-center"
+                  >
+                    Export
+                  </button>
+                  <button
+                    onClick={() => deleteResume(r.id)}
+                    className="text-xs py-1.5 px-2 text-red-500 hover:bg-red-50 rounded-lg"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </Card>
             ))}
