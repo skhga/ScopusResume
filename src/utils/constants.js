@@ -58,11 +58,10 @@ export const LANGUAGES = [
 ];
 
 export const PROFICIENCY_LEVELS = [
-  { value: 'beginner', label: 'Beginner' },
-  { value: 'intermediate', label: 'Intermediate' },
-  { value: 'advanced', label: 'Advanced' },
-  { value: 'fluent', label: 'Fluent' },
   { value: 'native', label: 'Native' },
+  { value: 'professional', label: 'Professional' },
+  { value: 'conversational', label: 'Conversational' },
+  { value: 'basic', label: 'Basic' },
 ];
 
 export const MONTHS = [
