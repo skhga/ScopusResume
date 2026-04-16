@@ -59,7 +59,6 @@ export const STEP_LABELS = [
   { label: 'Education', description: 'Academic background' },
   { label: 'Experience', description: 'Work history' },
   { label: 'Skills', description: 'Competencies' },
-  { label: 'Projects', description: 'Key projects' },
-  { label: 'Certifications', description: 'Credentials' },
-  { label: 'Review', description: 'Final check' },
+  { label: 'Additional Info', description: 'Extras & awards' },
+  { label: 'Review & Optimize', description: 'ATS & summary' },
 ];

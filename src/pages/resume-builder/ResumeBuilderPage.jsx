@@ -10,9 +10,8 @@ import CareerObjectiveStep from './CareerObjectiveStep';
 import EducationStep from './EducationStep';
 import WorkExperienceStep from './WorkExperienceStep';
 import SkillsStep from './SkillsStep';
-import ProjectsStep from './ProjectsStep';
-import CertificationsStep from './CertificationsStep';
-import SummaryStep from './SummaryStep';
+import AdditionalInfoStep from './AdditionalInfoStep';
+import ReviewOptimizeStep from './ReviewOptimizeStep';
 
 const STEP_KEYS = [
   'personalInfo',
@@ -20,9 +19,8 @@ const STEP_KEYS = [
   'education',
   'workExperience',
   'skills',
-  'projects',
-  'certifications',
-  'summary',
+  'additionalInfo',
+  'reviewOptimize',
 ];
 
 const STEP_COMPONENTS = [
@@ -31,9 +29,8 @@ const STEP_COMPONENTS = [
   EducationStep,
   WorkExperienceStep,
   SkillsStep,
-  ProjectsStep,
-  CertificationsStep,
-  SummaryStep,
+  AdditionalInfoStep,
+  ReviewOptimizeStep,
 ];
 
 export default function ResumeBuilderPage() {
@@ -48,9 +45,8 @@ export default function ResumeBuilderPage() {
     education: [],
     workExperience: [],
     skills: { technicalSkills: [], programmingLanguages: [], toolsSoftware: [], languageSkills: [], domainSpecificSkills: [] },
-    projects: [],
-    certifications: [],
-    summary: {},
+    additionalInfo: { volunteerExperience: [], publications: [], awards: [] },
+    reviewOptimize: { professionalSummary: { summaryText: '', isAiGenerated: false }, summary: {} },
   });
 
   useEffect(() => {
@@ -64,9 +60,15 @@ export default function ResumeBuilderPage() {
           education: existing.education || [],
           workExperience: existing.workExperience || [],
           skills: existing.skills || { technicalSkills: [], programmingLanguages: [], toolsSoftware: [], languageSkills: [], domainSpecificSkills: [] },
-          projects: existing.projects || [],
-          certifications: existing.certifications || [],
-          summary: existing.summary || {},
+          additionalInfo: {
+            volunteerExperience: existing.volunteerExperience || [],
+            publications: existing.publications || [],
+            awards: existing.awards || [],
+          },
+          reviewOptimize: {
+            professionalSummary: existing.professionalSummary || { summaryText: '', isAiGenerated: false },
+            summary: existing.summary || {},
+          },
         });
       }
     }
@@ -120,7 +122,7 @@ export default function ResumeBuilderPage() {
       <StepIndicator steps={STEP_LABELS} currentStep={step} onStepClick={setStep} />
 
       <div className="card mt-6 p-6">
-        {stepKey === 'summary' ? (
+        {stepKey === 'reviewOptimize' ? (
           <StepComponent
             data={formData[stepKey]}
             onChange={val => handleSectionChange(stepKey, val)}
