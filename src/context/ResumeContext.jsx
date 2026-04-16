@@ -65,6 +65,12 @@ export function ResumeProvider({ children }) {
     }
   };
 
+  const duplicateResume = async (id) => {
+    const copy = await resumeService.duplicateResume(id);
+    setResumes(prev => [copy, ...prev]);
+    return copy;
+  };
+
   const deleteResume = async (id) => {
     // Optimistic remove
     setResumes(prev => prev.filter(r => r.id !== id));
@@ -93,7 +99,7 @@ export function ResumeProvider({ children }) {
   return (
     <ResumeContext.Provider value={{
       resumes, currentResume, loadingResumes,
-      createResume, updateResume, deleteResume,
+      createResume, updateResume, deleteResume, duplicateResume,
       setCurrentResume, updateSection,
     }}>
       {children}
