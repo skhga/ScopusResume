@@ -12,11 +12,11 @@ import ResumeTemplate from '../../components/resume/ResumeTemplate';
 export default function ExportPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { resumes } = useResume();
+  const { resumes, updateResume } = useResume();
   const resume = resumes.find(r => r.id === id);
 
   const [format, setFormat] = useState('pdf');
-  const [template, setTemplate] = useState('classic');
+  const [template, setTemplate] = useState(resume?.templateId || 'modern');
   const [language, setLanguage] = useState('en');
   const [fontSize, setFontSize] = useState('medium');
   const [colorAccent, setColorAccent] = useState('#0abab5');
@@ -66,6 +66,17 @@ export default function ExportPage() {
     }
   };
 
+  const handleTemplateChange = async (templateId) => {
+    setTemplate(templateId);
+    if (resume?.id) {
+      try {
+        await updateResume(resume.id, { ...resume, templateId });
+      } catch (err) {
+        console.error('Failed to save template:', err);
+      }
+    }
+  };
+
   const colors = ['#0abab5', '#059669', '#7c3aed', '#dc2626', '#ea580c', '#334155'];
 
   return (
@@ -96,10 +107,18 @@ export default function ExportPage() {
           <Card title="Template">
             <div className="grid grid-cols-2 gap-2">
               {TEMPLATES.map(t => (
-                <label key={t.id} className={`p-3 border rounded-lg cursor-pointer text-center text-sm transition ${template === t.id ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-200 hover:border-gray-300'}`}>
-                  <input type="radio" name="template" value={t.id} checked={template === t.id} onChange={() => setTemplate(t.id)} className="sr-only" />
-                  {t.name}
-                </label>
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => handleTemplateChange(t.id)}
+                  className={`p-3 rounded-xl border-2 text-left transition-all ${
+                    template === t.id ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <p className="text-sm font-semibold text-gray-800">{t.name}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{t.description}</p>
+                  <p className="text-xs text-brand-600 mt-1">Best for: {t.bestFor}</p>
+                </button>
               ))}
             </div>
           </Card>
@@ -143,7 +162,7 @@ export default function ExportPage() {
         {/* Preview */}
         <div className="lg:col-span-2">
           <div ref={previewRef} className="bg-white border border-gray-200 rounded-lg shadow-sm p-8 min-h-[600px] sticky top-6">
-            <ResumeTemplate resume={resume} />
+            <ResumeTemplate resume={resume} template={template} />
           </div>
         </div>
       </div>
