@@ -15,6 +15,28 @@ export const SENIORITY_LEVELS = [
   { value: 'executive', label: 'Executive' },
 ];
 
+export const INDUSTRIES = [
+  'Technology',
+  'Finance & Banking',
+  'Healthcare',
+  'Education',
+  'Marketing & Advertising',
+  'Consulting',
+  'Engineering',
+  'Legal',
+  'Government & Public Sector',
+  'Non-profit',
+  'Retail & E-commerce',
+  'Manufacturing',
+  'Media & Entertainment',
+  'Real Estate',
+  'Hospitality & Tourism',
+  'Transportation & Logistics',
+  'Energy & Utilities',
+  'Pharmaceuticals',
+  'Other',
+];
+
 export const RESUME_FORMATS = [
   { value: 'chronological', label: 'Chronological' },
   { value: 'functional', label: 'Functional' },
