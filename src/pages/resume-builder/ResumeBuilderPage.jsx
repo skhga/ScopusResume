@@ -3,7 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Save, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { STEP_LABELS } from '../../utils/constants';
 import { useResume } from '../../hooks/useResume';
+import { useAutoSave } from '../../hooks/useAutoSave';
 import Button from '../../components/common/Button';
+import SaveIndicator from '../../components/common/SaveIndicator';
 import StepIndicator from '../../components/common/StepIndicator';
 import PersonalInfoStep from './PersonalInfoStep';
 import CareerObjectiveStep from './CareerObjectiveStep';
@@ -95,6 +97,12 @@ export default function ResumeBuilderPage() {
     }
   };
 
+  const autoSaveStatus = useAutoSave(
+    currentResume?.id,
+    formData,
+    updateResume,
+  );
+
   const next = () => { save(); setStep(s => Math.min(s + 1, STEP_COMPONENTS.length - 1)); };
   const prev = () => setStep(s => Math.max(s - 1, 0));
 
@@ -104,9 +112,12 @@ export default function ResumeBuilderPage() {
   return (
     <div className="page-container max-w-4xl">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
-          {currentResume ? 'Edit Resume' : 'Create Resume'}
-        </h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">
+            {currentResume ? 'Edit Resume' : 'Create Resume'}
+          </h1>
+          <SaveIndicator status={autoSaveStatus} />
+        </div>
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" onClick={save} loading={saving}>
             <Save className="h-4 w-4 mr-1" />Save Draft
