@@ -1,16 +1,64 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../lib/supabaseClient';
 import Button from '../../components/common/Button';
 import Card from '../../components/common/Card';
 import Modal from '../../components/common/Modal';
 
 export default function AccountSettingsPage() {
   const { user, updateProfile, logout } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState({ name: user?.name || '', email: user?.email || '', phone: '' });
   const [passwords, setPasswords] = useState({ current: '', newPass: '', confirm: '' });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const saveProfile = (e) => { e.preventDefault(); updateProfile(profile); };
+
+  const handleDataExport = async () => {
+    if (!user?.id) return;
+    setExporting(true);
+    try {
+      const { data: resumesData } = await supabase
+        .from('resumes')
+        .select('*')
+        .eq('user_id', user.id);
+
+      const exportData = {
+        exported_at: new Date().toISOString(),
+        user: { id: user.id, email: user.email, name: user.name },
+        resumes: resumesData || [],
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `scopusresume-data-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Data export failed:', err);
+      alert('Export failed. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      await logout();
+      navigate('/');
+    } catch (err) {
+      console.error('Account deletion failed:', err);
+    } finally {
+      setDeleting(false);
+      setShowDeleteModal(false);
+    }
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -38,22 +86,36 @@ export default function AccountSettingsPage() {
         </form>
       </Card>
 
-      <Card title="Danger Zone" className="border-red-200">
+      <Card title="Data & Privacy" className="border-red-200">
         <div className="flex items-center justify-between">
-          <div><p className="font-medium text-gray-900">Delete Account</p><p className="text-sm text-gray-500">Permanently delete your account and all data.</p></div>
-          <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>Delete Account</Button>
+          <div>
+            <p className="font-medium text-gray-900">Export Your Data</p>
+            <p className="text-sm text-gray-500">Download all your resume data as JSON (GDPR Article 20).</p>
+          </div>
+          <Button variant="secondary" size="sm" onClick={handleDataExport} loading={exporting}>
+            Export JSON
+          </Button>
         </div>
         <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
-          <div><p className="font-medium text-gray-900">Export Data</p><p className="text-sm text-gray-500">Download all your data (GDPR).</p></div>
-          <Button variant="secondary" size="sm">Export My Data</Button>
+          <div>
+            <p className="font-medium text-gray-900">Delete Account</p>
+            <p className="text-sm text-gray-500">Your data is retained for 30 days before permanent deletion.</p>
+          </div>
+          <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>Delete Account</Button>
         </div>
       </Card>
 
       <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Delete Account">
-        <p className="text-gray-600 mb-6">This action is permanent and cannot be undone. All your resumes and data will be deleted.</p>
+        <p className="text-gray-600 mb-2">Are you sure you want to delete your account?</p>
+        <p className="text-sm text-gray-500 mb-6">
+          Your data will be retained for <strong>30 days</strong> before permanent deletion.
+          You can contact support within this period to recover your account.
+        </p>
         <div className="flex justify-end space-x-3">
           <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>Cancel</Button>
-          <Button variant="danger" onClick={() => { setShowDeleteModal(false); logout(); }}>Delete Forever</Button>
+          <Button variant="danger" onClick={handleDeleteAccount} loading={deleting}>
+            Yes, Delete My Account
+          </Button>
         </div>
       </Modal>
     </div>
