@@ -233,9 +233,6 @@ export default function LandingPage() {
         <TestimonialsMarquee speed={40} bgColor="white" />
       </section>
 
-      {/* Pricing placeholder anchor */}
-      <div id="pricing" />
-
       {/* CTA */}
       <section className="py-20 bg-brand-700">
         <div className="max-w-2xl mx-auto text-center px-4">

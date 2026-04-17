@@ -8,7 +8,6 @@ const NAV_LINKS = [
   { label: 'How It Works', href: '#how-it-works' },
   { label: 'What You Get', href: '#features' },
   { label: 'About Us',     href: '#about' },
-  { label: 'Pricing',      href: '#pricing' },
 ];
 
 const logoStyle = {
