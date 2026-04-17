@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, CheckCircle2, ChevronRight, Zap, FileSearch, Sparkles } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Zap, FileSearch, Sparkles } from 'lucide-react';
 import LandingNavbar from '../../components/layout/LandingNavbar';
 import Footer from '../../components/layout/Footer';
 import GeometricHero from '../../components/ui/geometric-hero';
@@ -19,24 +19,6 @@ const PAIN_POINTS = [
   'Spent hours on your resume, still no callbacks',
   'Not sure if ATS is filtering you out before a human sees it',
   'Rewriting the same resume for every job posting',
-];
-
-const FEATURES = [
-  {
-    label: 'ATS Score',
-    heading: 'Know exactly why you\'re getting filtered out',
-    body: 'Paste any job description and get a real match score against your resume. See the keywords you\'re missing and the ones you already have. No guessing.',
-  },
-  {
-    label: 'AI Tailor',
-    heading: 'One resume, tailored for every application',
-    body: 'ScopusResume rewrites your bullet points and summary to match each job\'s language — without inventing experience. You review every change before applying it.',
-  },
-  {
-    label: 'Export',
-    heading: 'Download a clean PDF in seconds',
-    body: 'No sign-off required. Export as PDF or plain text, ready to upload to any job portal. What you see in the preview is what you get.',
-  },
 ];
 
 const STEPS = [

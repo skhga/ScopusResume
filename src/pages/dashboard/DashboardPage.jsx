@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, FileText, BarChart3, Send, Eye, Trash2, Sparkles, Search, Download } from 'lucide-react';
+import { Plus, FileText, BarChart3, Send, Trash2, Sparkles, Search, Download } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useResume } from '../../hooks/useResume';
 import Button from '../../components/common/Button';
