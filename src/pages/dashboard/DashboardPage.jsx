@@ -143,7 +143,7 @@ export default function DashboardPage() {
           {[
             { icon: Sparkles, label: 'Optimize with AI', desc: 'Let AI improve your bullet points', to: '/app/builder' },
             { icon: Search, label: 'Analyze Job Description', desc: 'Match your resume to any job', to: '/app/jd-analyzer' },
-            { icon: Download, label: 'Export Resume', desc: 'Download as PDF, DOCX, or TXT', to: resumes.length > 0 ? `/app/export/${resumes[0].id}` : '/app/builder' },
+            { icon: Download, label: 'Export Resume', desc: 'Download as PDF or plain text', to: resumes.length > 0 ? `/app/export/${resumes[0].id}` : '/app/builder' },
           ].map(a => (
             <Link key={a.to} to={a.to} className="p-4 border border-gray-200 rounded-xl hover:shadow-md hover:border-brand-200 transition group">
               <a.icon className="h-6 w-6 text-brand-600 mb-2 group-hover:scale-110 transition-transform" />
