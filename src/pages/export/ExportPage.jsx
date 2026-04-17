@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Download, FileType } from 'lucide-react';
 import { useResume } from '../../hooks/useResume';
-import { EXPORT_FORMATS, LANGUAGES } from '../../utils/constants';
+import { EXPORT_FORMATS } from '../../utils/constants';
 import { TEMPLATES } from '../../constants/templates';
 import { resumeToText } from '../../utils/resumeToText';
 import Button from '../../components/common/Button';
@@ -17,7 +17,6 @@ export default function ExportPage() {
 
   const [format, setFormat] = useState('pdf');
   const [template, setTemplate] = useState(resume?.templateId || 'modern');
-  const [language, setLanguage] = useState('en');
   const [fontSize, setFontSize] = useState('medium');
   const [colorAccent, setColorAccent] = useState('#0abab5');
   const [exporting, setExporting] = useState(false);
@@ -121,13 +120,6 @@ export default function ExportPage() {
                 </button>
               ))}
             </div>
-          </Card>
-
-          {/* Language */}
-          <Card title="Language">
-            <select value={language} onChange={e => setLanguage(e.target.value)} className="input-field bg-white">
-              {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-            </select>
           </Card>
 
           {/* Font Size */}
