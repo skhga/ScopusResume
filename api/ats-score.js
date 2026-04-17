@@ -138,3 +138,9 @@ ${jobDescription ? jobDescription.substring(0, 800) : 'None provided'}`;
     suggestions: suggestions.slice(0, 5),
   });
 };
+
+// Export helpers for unit testing
+module.exports.extractKeywords = extractKeywords;
+module.exports.cosineSimilarity = cosineSimilarity;
+module.exports.calcFormatScore = calcFormatScore;
+module.exports.calcCompletenessScore = calcCompletenessScore;
