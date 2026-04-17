@@ -2,8 +2,8 @@
  * @jest-environment node
  */
 
-jest.mock('./_anthropic', () => ({
-  callAnthropic: jest.fn().mockResolvedValue(
+jest.mock('./_openai', () => ({
+  callOpenAI: jest.fn().mockResolvedValue(
     'Software engineer with 5 years of experience building scalable systems.'
   ),
 }));
@@ -46,23 +46,23 @@ describe('generate-summary handler', () => {
   });
 
   it('computes yearsOfExperience from startYear and passes it to AI', async () => {
-    const { callAnthropic } = require('./_anthropic');
-    callAnthropic.mockClear();
+    const { callOpenAI } = require('./_openai');
+    callOpenAI.mockClear();
     const { req, res } = makeReqRes('POST', {
       resumeData: {
         workExperience: [{ startYear: '2015' }, { startYear: '2019' }],
       },
     });
     await handler(req, res);
-    expect(callAnthropic).toHaveBeenCalled();
-    const [, userMessage] = callAnthropic.mock.calls[0];
+    expect(callOpenAI).toHaveBeenCalled();
+    const [, userMessage] = callOpenAI.mock.calls[0];
     const expectedYears = new Date().getFullYear() - 2015;
     expect(userMessage).toContain(`Years of Experience: ${expectedYears}`);
   });
 
   it('returns 500 when AI throws', async () => {
-    const { callAnthropic } = require('./_anthropic');
-    callAnthropic.mockRejectedValueOnce(new Error('Network error'));
+    const { callOpenAI } = require('./_openai');
+    callOpenAI.mockRejectedValueOnce(new Error('Network error'));
     const { req, res } = makeReqRes('POST', { resumeData: { personalInfo: {} } });
     await handler(req, res);
     expect(res.status).toHaveBeenCalledWith(500);

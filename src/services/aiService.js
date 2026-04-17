@@ -1,12 +1,12 @@
 import { resumeToText } from '../utils/resumeToText';
 
-const ANTHROPIC_KEY = process.env.REACT_APP_ANTHROPIC_KEY;
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+const OPENAI_KEY = process.env.REACT_APP_OPENAI_KEY;
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const IS_PROD = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
 
 /**
  * Call a Vercel proxy endpoint (production path).
- * The proxy handles the Anthropic API key server-side.
+ * The proxy handles the API key server-side.
  */
 async function callProxy(endpoint, body) {
   const res = await fetch(endpoint, {
@@ -22,28 +22,28 @@ async function callProxy(endpoint, body) {
 }
 
 /**
- * Call Anthropic directly (dev path — requires REACT_APP_ANTHROPIC_KEY in .env.local).
+ * Call OpenAI directly (dev path — requires REACT_APP_OPENAI_KEY in .env.local).
  */
 async function callLLM(systemPrompt, userMessage) {
-  if (!ANTHROPIC_KEY) {
+  if (!OPENAI_KEY) {
     throw new Error(
-      'No Anthropic API key. Set REACT_APP_ANTHROPIC_KEY in .env.local (see .env.local.example).'
+      'No OpenAI API key. Set REACT_APP_OPENAI_KEY in .env.local (see .env.local.example).'
     );
   }
 
-  const res = await fetch(ANTHROPIC_URL, {
+  const res = await fetch(OPENAI_URL, {
     method: 'POST',
     headers: {
-      'x-api-key': ANTHROPIC_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-      'content-type': 'application/json',
+      'Authorization': `Bearer ${OPENAI_KEY}`,
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: 'gpt-4o-mini',
       max_tokens: 4096,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }],
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
     }),
   });
 
@@ -53,7 +53,7 @@ async function callLLM(systemPrompt, userMessage) {
   }
 
   const data = await res.json();
-  return data.content[0].text;
+  return data.choices[0].message.content;
 }
 
 /**
@@ -72,7 +72,7 @@ function parseJSON(text) {
 /**
  * Tailor a resume for a specific job description.
  * Returns an array of diff objects: [{section, original, tailored, reason}]
- * Production: calls /api/tailor proxy. Dev: calls Anthropic directly.
+ * Production: calls /api/tailor proxy. Dev: calls OpenAI directly.
  */
 export async function tailorResume(resume, jd) {
   if (!jd || !jd.trim()) {
@@ -81,12 +81,12 @@ export async function tailorResume(resume, jd) {
 
   const resumeText = resumeToText(resume);
 
-  // Production: use the Vercel proxy (ANTHROPIC_KEY is server-side only)
-  if (IS_PROD || !ANTHROPIC_KEY) {
+  // Production: use the Vercel proxy (OPENAI_KEY is server-side only)
+  if (IS_PROD || !OPENAI_KEY) {
     return callProxy('/api/tailor', { resumeText, jd: jd.slice(0, 5000) });
   }
 
-  // Dev: call Anthropic directly
+  // Dev: call OpenAI directly
   const systemPrompt = `You are an expert resume coach helping job seekers tailor their resumes to specific job descriptions.
 Your goal is to improve the resume's match to the job while maintaining the candidate's authentic voice — never invent experience or exaggerate.
 
@@ -124,7 +124,7 @@ Rules:
 /**
  * Analyze a job description against a resume.
  * Returns ATS match score, matched skills, missing keywords, and suggestions.
- * Production: calls /api/analyze proxy. Dev: calls Anthropic directly or uses mock.
+ * Production: calls /api/analyze proxy. Dev: calls OpenAI directly or uses mock.
  */
 export async function analyzeJobDescription(jdText, resume) {
   const resumeText = resumeToText(resume);
@@ -134,7 +134,7 @@ export async function analyzeJobDescription(jdText, resume) {
     return callProxy('/api/analyze', { resumeText, jd: jdText.slice(0, 5000) });
   }
 
-  if (!ANTHROPIC_KEY) {
+  if (!OPENAI_KEY) {
     // Dev mock — useful for UI development without a key
     console.warn('[aiService] No API key — using mock analyzeJobDescription response.');
     await new Promise(r => setTimeout(r, 800));
@@ -159,7 +159,7 @@ export async function analyzeJobDescription(jdText, resume) {
     };
   }
 
-  // Dev with key: call Anthropic directly
+  // Dev with key: call OpenAI directly
   const systemPrompt = `You are an ATS (Applicant Tracking System) analyzer.
 Analyze how well a resume matches a job description. Return ONLY a JSON object with this shape:
 {
@@ -180,7 +180,7 @@ Analyze how well a resume matches a job description. Return ONLY a JSON object w
 
 // Legacy helpers
 export async function rewriteBulletPoint(original) {
-  if (!ANTHROPIC_KEY) {
+  if (!OPENAI_KEY) {
     await new Promise(r => setTimeout(r, 1000));
     return `Spearheaded ${original.toLowerCase().replace('responsible for ', '').replace('worked on ', '')}, driving measurable impact across the organization`;
   }
@@ -192,7 +192,7 @@ export async function rewriteBulletPoint(original) {
 }
 
 export async function generateSummary(resumeData) {
-  if (!ANTHROPIC_KEY) {
+  if (!OPENAI_KEY) {
     await new Promise(r => setTimeout(r, 1200));
     return 'Results-driven software professional with expertise in full-stack development, specializing in building scalable web applications. Proven track record of delivering high-impact solutions and collaborating with cross-functional teams.';
   }
@@ -205,7 +205,7 @@ export async function generateSummary(resumeData) {
 }
 
 export async function optimizeBullets(bullets) {
-  if (!ANTHROPIC_KEY) {
+  if (!OPENAI_KEY) {
     await new Promise(r => setTimeout(r, 1500));
     return bullets.map(b =>
       `Engineered and delivered ${b.toLowerCase().replace('responsible for ', '').replace('worked on ', '')}, resulting in 25% improvement in team productivity`

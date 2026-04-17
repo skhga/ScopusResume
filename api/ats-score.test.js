@@ -2,8 +2,8 @@
  * @jest-environment node
  */
 
-jest.mock('./_anthropic', () => ({
-  callAnthropic: jest.fn().mockResolvedValue(
+jest.mock('./_openai', () => ({
+  callOpenAI: jest.fn().mockResolvedValue(
     '{"impact_score": 75, "missing_keywords": ["Docker", "Kubernetes"], "suggestions": ["Quantify results"]}'
   ),
 }));

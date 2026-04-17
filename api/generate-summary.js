@@ -1,4 +1,4 @@
-const { callAnthropic } = require('./_anthropic');
+const { callOpenAI } = require('./_openai');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -43,7 +43,7 @@ Job Description Keywords: ${resumeData.careerObjective?.jobDescriptionText ? res
 Generate a 3-4 sentence professional summary.`;
 
   try {
-    const summary = await callAnthropic(systemPrompt, userPrompt);
+    const summary = await callOpenAI(systemPrompt, userPrompt);
     res.status(200).json({ summary: summary.trim() });
   } catch (err) {
     console.error('generate-summary error:', err);

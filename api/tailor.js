@@ -1,4 +1,4 @@
-const { callAnthropic } = require('./_anthropic');
+const { callOpenAI } = require('./_openai');
 
 function parseJSON(text) {
   try {
@@ -39,7 +39,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const raw = await callAnthropic(SYSTEM, `RESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jd.slice(0, 5000)}`);
+    const raw = await callOpenAI(SYSTEM, `RESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jd.slice(0, 5000)}`);
     const parsed = parseJSON(raw);
 
     if (!Array.isArray(parsed)) {

@@ -1,4 +1,4 @@
-const { callAnthropic } = require('./_anthropic');
+const { callOpenAI } = require('./_openai');
 const crypto = require('crypto');
 
 function extractKeywords(text) {
@@ -109,7 +109,7 @@ ${bullets || 'No bullets provided'}
 Job Description (check for missing keywords):
 ${jobDescription ? jobDescription.substring(0, 800) : 'None provided'}`;
 
-    const raw = await callAnthropic(systemPrompt, userPrompt);
+    const raw = await callOpenAI(systemPrompt, userPrompt);
     const match = raw.match(/\{[\s\S]*\}/);
     if (match) {
       const aiData = JSON.parse(match[0]);

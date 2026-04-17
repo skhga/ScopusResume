@@ -2,8 +2,8 @@
  * @jest-environment node
  */
 
-jest.mock('./_anthropic', () => ({
-  callAnthropic: jest.fn().mockResolvedValue('Led team of 5 engineers, reducing deployment time by 40%.'),
+jest.mock('./_openai', () => ({
+  callOpenAI: jest.fn().mockResolvedValue('Led team of 5 engineers, reducing deployment time by 40%.'),
 }));
 
 const handler = require('./rewrite-bullets');
@@ -42,8 +42,8 @@ describe('rewrite-bullets handler', () => {
   });
 
   it('returns 500 when AI throws', async () => {
-    const { callAnthropic } = require('./_anthropic');
-    callAnthropic.mockRejectedValueOnce(new Error('API down'));
+    const { callOpenAI } = require('./_openai');
+    callOpenAI.mockRejectedValueOnce(new Error('API down'));
     const { req, res } = makeReqRes('POST', { bullet: 'did some work' });
     await handler(req, res);
     expect(res.status).toHaveBeenCalledWith(500);
