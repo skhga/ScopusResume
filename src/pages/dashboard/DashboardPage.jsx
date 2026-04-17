@@ -124,7 +124,7 @@ export default function DashboardPage() {
                     Export
                   </button>
                   <button
-                    onClick={() => deleteResume(r.id)}
+                    onClick={() => window.confirm('Delete this resume? This cannot be undone.') && deleteResume(r.id)}
                     className="text-xs py-1.5 px-2 text-red-500 hover:bg-red-50 rounded-lg"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
