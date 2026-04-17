@@ -28,11 +28,14 @@ export function resumeToText(resume) {
     if (co.seniorityLevel) lines.push(`Level: ${co.seniorityLevel}`);
   }
 
-  // Professional Summary
-  const s = resume.summary || {};
-  if (s.summaryText) {
+  // Professional Summary — support both old (resume.summary) and new (resume.reviewOptimize.professionalSummary) paths
+  const summaryText =
+    resume.reviewOptimize?.professionalSummary?.summaryText ||
+    resume.summary?.summaryText ||
+    '';
+  if (summaryText) {
     lines.push('\n## Professional Summary');
-    lines.push(s.summaryText);
+    lines.push(summaryText);
   }
 
   // Work Experience
@@ -120,6 +123,39 @@ export function resumeToText(resume) {
     for (const c of certs) {
       const parts = [c.certificationName, c.issuingBody, c.dateObtained].filter(Boolean);
       lines.push(parts.join(' | '));
+    }
+  }
+
+  // Additional Info
+  const ai = resume.additionalInfo || {};
+
+  const volunteers = ai.volunteerExperience || [];
+  if (volunteers.length) {
+    lines.push('\n## Volunteer Experience');
+    for (const v of volunteers) {
+      const header = [v.organizationName, v.role].filter(Boolean).join(' | ');
+      if (header) lines.push(`\n${header}`);
+      if (v.description) lines.push(v.description);
+    }
+  }
+
+  const pubs = ai.publications || [];
+  if (pubs.length) {
+    lines.push('\n## Publications');
+    for (const pub of pubs) {
+      const parts = [pub.publicationTitle, pub.publicationName, pub.year].filter(Boolean);
+      if (parts.length) lines.push(parts.join(' | '));
+      if (pub.doiUrl) lines.push(`DOI: ${pub.doiUrl}`);
+    }
+  }
+
+  const awards = ai.awards || [];
+  if (awards.length) {
+    lines.push('\n## Awards');
+    for (const a of awards) {
+      const parts = [a.awardName, a.awardingBody, a.dateReceived].filter(Boolean);
+      if (parts.length) lines.push(parts.join(' | '));
+      if (a.description) lines.push(a.description);
     }
   }
 

@@ -203,4 +203,79 @@ describe('resumeToText', () => {
     expect(result).toContain('UC Berkeley');
     expect(result).toContain('React, Node.js');
   });
+
+  it('reads professionalSummary from reviewOptimize path', () => {
+    const result = resumeToText({
+      reviewOptimize: {
+        professionalSummary: { summaryText: 'Senior engineer with 10 years experience.' },
+      },
+    });
+    expect(result).toContain('Professional Summary');
+    expect(result).toContain('Senior engineer with 10 years experience.');
+  });
+
+  it('falls back to summary.summaryText for old resumes', () => {
+    const result = resumeToText({
+      summary: { summaryText: 'Old-format summary.' },
+    });
+    expect(result).toContain('Old-format summary.');
+  });
+
+  it('prefers reviewOptimize summary over legacy summary', () => {
+    const result = resumeToText({
+      reviewOptimize: { professionalSummary: { summaryText: 'New summary.' } },
+      summary: { summaryText: 'Old summary.' },
+    });
+    expect(result).toContain('New summary.');
+    expect(result).not.toContain('Old summary.');
+  });
+
+  it('includes volunteer experience from additionalInfo', () => {
+    const result = resumeToText({
+      additionalInfo: {
+        volunteerExperience: [
+          { organizationName: 'Red Cross', role: 'Coordinator', description: 'Organized disaster relief.' },
+        ],
+      },
+    });
+    expect(result).toContain('Volunteer Experience');
+    expect(result).toContain('Red Cross');
+    expect(result).toContain('Coordinator');
+    expect(result).toContain('Organized disaster relief.');
+  });
+
+  it('includes publications from additionalInfo', () => {
+    const result = resumeToText({
+      additionalInfo: {
+        publications: [
+          { publicationTitle: 'ML Survey', publicationName: 'IEEE', year: '2023', doiUrl: 'doi.org/10.1' },
+        ],
+      },
+    });
+    expect(result).toContain('Publications');
+    expect(result).toContain('ML Survey');
+    expect(result).toContain('IEEE');
+    expect(result).toContain('2023');
+    expect(result).toContain('doi.org/10.1');
+  });
+
+  it('includes awards from additionalInfo', () => {
+    const result = resumeToText({
+      additionalInfo: {
+        awards: [
+          { awardName: 'Best Paper', awardingBody: 'ACM', dateReceived: '2023', description: 'Top 1% of papers.' },
+        ],
+      },
+    });
+    expect(result).toContain('Awards');
+    expect(result).toContain('Best Paper');
+    expect(result).toContain('ACM');
+    expect(result).toContain('2023');
+  });
+
+  it('handles empty additionalInfo arrays without throwing', () => {
+    expect(() => resumeToText({
+      additionalInfo: { volunteerExperience: [], publications: [], awards: [] },
+    })).not.toThrow();
+  });
 });
