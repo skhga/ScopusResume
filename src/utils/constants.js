@@ -45,9 +45,7 @@ export const RESUME_FORMATS = [
 
 export const EXPORT_FORMATS = [
   { value: 'pdf', label: 'PDF' },
-  { value: 'docx', label: 'DOCX' },
   { value: 'txt', label: 'Plain Text' },
-  { value: 'html', label: 'HTML' },
 ];
 
 export const LANGUAGES = [
