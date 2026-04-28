@@ -48,7 +48,7 @@ export function ResumeProvider({ children }) {
 
   const updateResume = async (id, data) => {
     // Optimistic update — instant UI response
-    const optimistic = { ...data, updatedAt: new Date().toISOString() };
+    const optimistic = { id, ...data, updatedAt: new Date().toISOString() };
     setResumes(prev => prev.map(r => r.id === id ? optimistic : r));
     if (currentResume?.id === id) setCurrentResumeState(optimistic);
 
