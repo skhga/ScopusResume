@@ -9,9 +9,17 @@ import ATSScorePanel from '../../components/resume/ATSScorePanel';
 export default function ResumePreviewPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { resumes } = useResume();
+  const { resumes, loadingResumes } = useResume();
   const resume = resumes.find(r => r.id === id);
   const [showATS, setShowATS] = useState(true);
+
+  if (loadingResumes) {
+    return (
+      <div className="page-container text-center py-20">
+        <p className="text-gray-500">Loading resume...</p>
+      </div>
+    );
+  }
 
   if (!resume) {
     return (
