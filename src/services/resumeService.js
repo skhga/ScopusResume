@@ -29,6 +29,30 @@ const RESUME_SELECT =
   'target_job_title, target_industry, seniority_level, job_description_text, job_description_url, ' +
   'resume_format, resume_length';
 
+// ────────────────────────────────────────────────────────────────────────────
+// Per-resume write serialization — prevents auto-save races where two
+// concurrent updateResume calls for the same resume id interleave their
+// DELETE-then-INSERT sequences and lose rows. We chain promises per id so
+// only one write at a time can run for any given resume.
+// ────────────────────────────────────────────────────────────────────────────
+const writeChainByResumeId = new Map();
+function serializeResumeWrite(resumeId, fn) {
+  const prev = writeChainByResumeId.get(resumeId) || Promise.resolve();
+  const next = prev.catch(() => {}).then(fn);
+  writeChainByResumeId.set(resumeId, next);
+  // Cleanup when this is the last in chain. We attach cleanup via a swallowed
+  // catch chain so that if `next` rejects, the cleanup branch does not raise
+  // an unhandled rejection — the original `next` is still returned to the
+  // caller, who will await/catch it normally.
+  const cleanup = () => {
+    if (writeChainByResumeId.get(resumeId) === next) {
+      writeChainByResumeId.delete(resumeId);
+    }
+  };
+  next.then(cleanup, cleanup);
+  return next;
+}
+
 /**
  * Flatten a Supabase row into the resume shape the app expects.
  * Top-level metadata columns are merged alongside the JSONB data blob.
@@ -529,6 +553,529 @@ async function fetchChildRowsForResume(resumeId) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Phase 4: dual-write helpers.
+//
+// Each helper mirrors the per-section logic in scripts/db/backfill.js but ports
+// from `pg.Client.query` to the Supabase JS client. They follow the same
+// idempotency strategy:
+//   - 1:1 sections (personal_info, professional_summary) → UPSERT on resume_id
+//   - Repeatable sections → DELETE-then-INSERT
+//
+// All helpers RETURN nothing on success and THROW on any DB error, so callers
+// can wrap in try/catch and fall back to JSONB-only consistency.
+//
+// IMPORTANT: callers MUST check whether the section is present in `updates`
+// BEFORE invoking these — never call them with `undefined` because that would
+// be interpreted as "user cleared the section" and trigger a DELETE.
+// ────────────────────────────────────────────────────────────────────────────
+
+const ALLOWED_SENIORITY = ['entry', 'mid', 'senior', 'executive'];
+const ALLOWED_RESUME_FORMATS = ['chronological', 'functional', 'hybrid'];
+const ALLOWED_RESUME_LENGTHS = ['one_page', 'two_page'];
+const ALLOWED_DEGREES = ['ba', 'bs', 'ma', 'ms', 'mba', 'phd', 'certificate', 'other'];
+
+// JSONB-key → spec category mapping for non-language skill rows
+const SKILL_CATEGORY_MAP = [
+  ['technicalSkills', 'technical'],
+  ['programmingLanguages', 'programming'],
+  ['toolsSoftware', 'tools'],
+  ['domainSpecificSkills', 'domain'],
+];
+
+// Value coercion helpers — mirror backfill.js. JSONB fields can be '', null,
+// or undefined. The DB expects NULL for missing values and proper types.
+function cleanString(v) {
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  return s === '' ? null : s;
+}
+function cleanInt(v) {
+  if (v === undefined || v === null || v === '') return null;
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : null;
+}
+function cleanFloat(v) {
+  if (v === undefined || v === null || v === '') return null;
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : null;
+}
+function cleanBool(v) {
+  if (v === undefined || v === null) return false;
+  return Boolean(v);
+}
+function cleanDate(v) {
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  return s === '' ? null : s;
+}
+function cleanJsonArray(v) {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x) => x !== undefined && x !== null);
+}
+
+function throwOnError(result, label) {
+  if (result && result.error) {
+    throw new Error(`[normalized:${label}] ${result.error.message}`);
+  }
+  return result;
+}
+
+async function writeNormalizedPersonalInfo(resumeId, pi) {
+  // Caller only invokes us when `personalInfo` was present in `updates`, so we
+  // upsert even when the value is null / non-object — that's the "user cleared
+  // every field" path. Empty strings collapse to NULL via cleanString().
+  const safe = pi && typeof pi === 'object' ? pi : {};
+  const row = {
+    resume_id: resumeId,
+    full_name: cleanString(safe.fullName),
+    professional_email: cleanString(safe.email),
+    phone_number: cleanString(safe.phone),
+    city: cleanString(safe.city),
+    state: cleanString(safe.state),
+    target_country_region: cleanString(safe.targetCountry),
+    linkedin_url: cleanString(safe.linkedinUrl),
+    portfolio_url: cleanString(safe.portfolioUrl),
+  };
+  throwOnError(
+    await supabase
+      .from('personal_info')
+      .upsert(row, { onConflict: 'resume_id' }),
+    'personal_info'
+  );
+}
+
+async function writeNormalizedEducation(resumeId, education) {
+  // Always DELETE first (mirror backfill — empty array means "user cleared").
+  throwOnError(
+    await supabase.from('education').delete().eq('resume_id', resumeId),
+    'education_delete'
+  );
+  if (!Array.isArray(education) || education.length === 0) return;
+
+  const rows = education.map((e, i) => {
+    const safe = e || {};
+    const degree = cleanString(safe.degreeType);
+    const validDegree = degree && ALLOWED_DEGREES.includes(degree) ? degree : null;
+    const gradMonth = cleanInt(safe.graduationMonth);
+    const validGradMonth =
+      gradMonth !== null && gradMonth >= 1 && gradMonth <= 12 ? gradMonth : null;
+    const gpa = cleanFloat(safe.gpa);
+    const validGpa = gpa !== null && gpa >= 0 && gpa <= 4.0 ? gpa : null;
+    return {
+      resume_id: resumeId,
+      institution_name: cleanString(safe.institutionName),
+      degree_type: validDegree,
+      field_of_study: cleanString(safe.fieldOfStudy),
+      graduation_month: validGradMonth,
+      graduation_year: cleanInt(safe.graduationYear),
+      currently_enrolled: cleanBool(safe.currentlyEnrolled),
+      gpa: validGpa,
+      honors_awards: cleanString(safe.honorsAwards),
+      relevant_coursework: cleanString(safe.relevantCoursework),
+      thesis_title: cleanString(safe.thesisTitle),
+      display_order: cleanInt(safe.displayOrder) ?? i,
+    };
+  });
+  throwOnError(
+    await supabase.from('education').insert(rows),
+    'education_insert'
+  );
+}
+
+async function writeNormalizedWorkExperience(resumeId, work) {
+  // CASCADE on work_experience deletes child bullet_points automatically.
+  throwOnError(
+    await supabase.from('work_experience').delete().eq('resume_id', resumeId),
+    'work_experience_delete'
+  );
+  if (!Array.isArray(work) || work.length === 0) return;
+
+  const expRows = work.map((w, i) => {
+    const safe = w || {};
+    const startMonth = cleanInt(safe.startMonth);
+    const validStart =
+      startMonth !== null && startMonth >= 1 && startMonth <= 12 ? startMonth : null;
+    const endMonth = cleanInt(safe.endMonth);
+    const validEnd =
+      endMonth !== null && endMonth >= 1 && endMonth <= 12 ? endMonth : null;
+    return {
+      resume_id: resumeId,
+      company_name: cleanString(safe.companyName),
+      job_title: cleanString(safe.jobTitle),
+      location: cleanString(safe.location),
+      is_remote: cleanBool(safe.isRemote),
+      start_month: validStart,
+      start_year: cleanInt(safe.startYear),
+      end_month: validEnd,
+      end_year: cleanInt(safe.endYear),
+      is_current_role: cleanBool(safe.isCurrentRole),
+      job_description_raw: cleanString(safe.jobDescriptionRaw),
+      display_order: cleanInt(safe.displayOrder) ?? i,
+    };
+  });
+
+  // INSERT...RETURNING so we can map bullets to the new IDs.
+  const insertRes = throwOnError(
+    await supabase.from('work_experience').insert(expRows).select('id'),
+    'work_experience_insert'
+  );
+  const newIds = (insertRes.data || []).map((r) => r.id);
+
+  const bulletRows = [];
+  for (let i = 0; i < work.length; i++) {
+    const expId = newIds[i];
+    if (!expId) continue;
+    const bps = Array.isArray(work[i]?.bulletPoints) ? work[i].bulletPoints : [];
+    for (let j = 0; j < bps.length; j++) {
+      const b = bps[j];
+      let raw, ai, isUsingAi;
+      if (typeof b === 'string') {
+        raw = b;
+        ai = null;
+        isUsingAi = false;
+      } else if (b && typeof b === 'object') {
+        raw = cleanString(b.raw ?? b.rawText) ?? '';
+        ai = cleanString(b.ai ?? b.aiText);
+        isUsingAi = cleanBool(b.isUsingAi);
+      } else {
+        continue;
+      }
+      if (!raw && !ai) continue;
+      bulletRows.push({
+        experience_id: expId,
+        raw_text: raw ?? '',
+        ai_text: ai,
+        is_using_ai: isUsingAi,
+        display_order: j,
+      });
+    }
+  }
+  if (bulletRows.length > 0) {
+    throwOnError(
+      await supabase.from('bullet_points').insert(bulletRows),
+      'bullet_points_insert'
+    );
+  }
+}
+
+async function writeNormalizedSkills(resumeId, skills) {
+  throwOnError(
+    await supabase.from('skills').delete().eq('resume_id', resumeId),
+    'skills_delete'
+  );
+  if (!skills || typeof skills !== 'object') return;
+
+  const rows = [];
+  let order = 0;
+  for (const [jsonKey, category] of SKILL_CATEGORY_MAP) {
+    const arr = skills[jsonKey];
+    if (!Array.isArray(arr)) continue;
+    for (const item of arr) {
+      const name = cleanString(item);
+      if (!name) continue;
+      rows.push({
+        resume_id: resumeId,
+        category,
+        skill_name: name,
+        proficiency_level: null,
+        display_order: order++,
+      });
+    }
+  }
+  const langs = Array.isArray(skills.languageSkills) ? skills.languageSkills : [];
+  for (const item of langs) {
+    let name = null;
+    let proficiency = null;
+    if (typeof item === 'string') {
+      name = cleanString(item);
+    } else if (item && typeof item === 'object') {
+      name = cleanString(item.name);
+      proficiency = cleanString(item.proficiency);
+    }
+    if (!name) continue;
+    rows.push({
+      resume_id: resumeId,
+      category: 'language',
+      skill_name: name,
+      proficiency_level: proficiency,
+      display_order: order++,
+    });
+  }
+  if (rows.length > 0) {
+    throwOnError(
+      await supabase.from('skills').insert(rows),
+      'skills_insert'
+    );
+  }
+}
+
+async function writeNormalizedProjects(resumeId, projects) {
+  throwOnError(
+    await supabase.from('projects').delete().eq('resume_id', resumeId),
+    'projects_delete'
+  );
+  if (!Array.isArray(projects) || projects.length === 0) return;
+  const rows = projects.map((p, i) => {
+    const safe = p || {};
+    let description = cleanString(safe.projectDescription);
+    const inst = cleanString(safe.associatedInstitution);
+    if (inst) {
+      description = description ? `[${inst}] ${description}` : `[${inst}]`;
+    }
+    return {
+      resume_id: resumeId,
+      project_title: cleanString(safe.projectTitle),
+      description,
+      technologies_used: cleanJsonArray(safe.technologiesUsed),
+      outcome: cleanString(safe.projectOutcome),
+      project_url: cleanString(safe.projectUrl),
+      display_order: i,
+    };
+  });
+  throwOnError(
+    await supabase.from('projects').insert(rows),
+    'projects_insert'
+  );
+}
+
+async function writeNormalizedCertifications(resumeId, certs) {
+  throwOnError(
+    await supabase.from('certifications').delete().eq('resume_id', resumeId),
+    'certifications_delete'
+  );
+  if (!Array.isArray(certs) || certs.length === 0) return;
+  const rows = certs.map((c, i) => {
+    const safe = c || {};
+    return {
+      resume_id: resumeId,
+      certification_name: cleanString(safe.certificationName),
+      issuing_body: cleanString(safe.issuingBody),
+      date_obtained: cleanDate(safe.dateObtained),
+      credential_id: cleanString(safe.credentialId),
+      display_order: i,
+    };
+  });
+  throwOnError(
+    await supabase.from('certifications').insert(rows),
+    'certifications_insert'
+  );
+}
+
+async function writeNormalizedVolunteer(resumeId, vols) {
+  throwOnError(
+    await supabase.from('volunteer_experience').delete().eq('resume_id', resumeId),
+    'volunteer_experience_delete'
+  );
+  if (!Array.isArray(vols) || vols.length === 0) return;
+  const rows = vols.map((v, i) => {
+    const safe = v || {};
+    return {
+      resume_id: resumeId,
+      organization_name: cleanString(safe.organizationName),
+      role: cleanString(safe.role),
+      start_date: cleanDate(safe.startDate),
+      end_date: cleanDate(safe.endDate),
+      description: cleanString(safe.description),
+      display_order: i,
+    };
+  });
+  throwOnError(
+    await supabase.from('volunteer_experience').insert(rows),
+    'volunteer_experience_insert'
+  );
+}
+
+async function writeNormalizedPublications(resumeId, pubs) {
+  throwOnError(
+    await supabase.from('publications').delete().eq('resume_id', resumeId),
+    'publications_delete'
+  );
+  if (!Array.isArray(pubs) || pubs.length === 0) return;
+  const rows = pubs.map((p, i) => {
+    const safe = p || {};
+    return {
+      resume_id: resumeId,
+      publication_title: cleanString(safe.publicationTitle),
+      authors: cleanJsonArray(safe.authors),
+      publication_name: cleanString(safe.publicationName),
+      year: cleanInt(safe.year),
+      doi_url: cleanString(safe.doiUrl),
+      display_order: i,
+    };
+  });
+  throwOnError(
+    await supabase.from('publications').insert(rows),
+    'publications_insert'
+  );
+}
+
+async function writeNormalizedAwards(resumeId, awards) {
+  throwOnError(
+    await supabase.from('awards').delete().eq('resume_id', resumeId),
+    'awards_delete'
+  );
+  if (!Array.isArray(awards) || awards.length === 0) return;
+  const rows = awards.map((a, i) => {
+    const safe = a || {};
+    return {
+      resume_id: resumeId,
+      award_name: cleanString(safe.awardName),
+      awarding_body: cleanString(safe.awardingBody),
+      date_received: cleanDate(safe.dateReceived),
+      description: cleanString(safe.description),
+      display_order: i,
+    };
+  });
+  throwOnError(
+    await supabase.from('awards').insert(rows),
+    'awards_insert'
+  );
+}
+
+async function writeNormalizedProfessionalSummary(resumeId, ps) {
+  // Caller only invokes us when `professionalSummary` was explicitly present in
+  // `updates`, so we always upsert — even when summaryText is empty/null. This
+  // is the "user cleared the summary" path; refusing to write here would leave
+  // a stale row that survives Phase 5 (when JSONB is dropped).
+  const safe = ps && typeof ps === 'object' ? ps : {};
+  const text = cleanString(safe.summaryText);
+  throwOnError(
+    await supabase
+      .from('professional_summary')
+      .upsert(
+        {
+          resume_id: resumeId,
+          summary_text: text,
+          is_ai_generated: cleanBool(safe.isAiGenerated),
+        },
+        { onConflict: 'resume_id' }
+      ),
+    'professional_summary'
+  );
+}
+
+// Resolve the "actual" section payload from `updates`, supporting both the
+// flat top-level shape (e.g. updates.volunteerExperience) and the wizard's
+// nested shape (e.g. updates.additionalInfo.volunteerExperience). Returns
+// `undefined` when the section is genuinely absent so callers can skip writes.
+function pickSection(updates, ...paths) {
+  for (const path of paths) {
+    const parts = path.split('.');
+    let cur = updates;
+    let found = true;
+    for (const part of parts) {
+      if (cur && typeof cur === 'object' && part in cur) {
+        cur = cur[part];
+      } else {
+        found = false;
+        break;
+      }
+    }
+    if (found) return cur;
+  }
+  return undefined;
+}
+
+// Run all per-section normalized writes for a single update. Sequential to
+// keep concurrency simple — Supabase requests are on the order of ~50ms each
+// and 10 sections × ~50ms is well under the 1s auto-save debounce.
+//
+// Per-section failures are caught and accumulated. After all sections have run,
+// if ANY section failed we throw a single aggregated error so the caller's
+// outer try/catch can roll back the JSONB and surface a save error to the
+// user. The plan invariant — "if a normalized write fails, updateResume must
+// fail" — depends on this throw because Phase 5 drops the JSONB column and
+// silent failures here would become permanent data loss.
+//
+// Note: resume_metadata cols (target_job_title, seniority_level, resume_format,
+// resume_length, …) are written by the parent UPDATE in updateResume itself,
+// not here. This function only handles the 11 child tables.
+async function runDualWriteSections(resumeId, updates) {
+  const sections = [
+    // 1:1 sections first (cheap, single upserts)
+    [
+      'personal_info',
+      pickSection(updates, 'personalInfo'),
+      (s) => writeNormalizedPersonalInfo(resumeId, s),
+    ],
+    [
+      'professional_summary',
+      pickSection(
+        updates,
+        'professionalSummary',
+        'reviewOptimize.professionalSummary'
+      ),
+      (s) => writeNormalizedProfessionalSummary(resumeId, s),
+    ],
+    // Repeatables — only run when section is explicitly present so we don't
+    // accidentally DELETE everything when the wizard sends a partial update.
+    [
+      'education',
+      pickSection(updates, 'education'),
+      (s) => writeNormalizedEducation(resumeId, s),
+    ],
+    [
+      'work_experience',
+      pickSection(updates, 'workExperience'),
+      (s) => writeNormalizedWorkExperience(resumeId, s),
+    ],
+    [
+      'skills',
+      pickSection(updates, 'skills'),
+      (s) => writeNormalizedSkills(resumeId, s),
+    ],
+    [
+      'projects',
+      pickSection(updates, 'projects'),
+      (s) => writeNormalizedProjects(resumeId, s),
+    ],
+    [
+      'certifications',
+      pickSection(updates, 'certifications'),
+      (s) => writeNormalizedCertifications(resumeId, s),
+    ],
+    [
+      'volunteer_experience',
+      pickSection(
+        updates,
+        'volunteerExperience',
+        'additionalInfo.volunteerExperience'
+      ),
+      (s) => writeNormalizedVolunteer(resumeId, s),
+    ],
+    [
+      'publications',
+      pickSection(updates, 'publications', 'additionalInfo.publications'),
+      (s) => writeNormalizedPublications(resumeId, s),
+    ],
+    [
+      'awards',
+      pickSection(updates, 'awards', 'additionalInfo.awards'),
+      (s) => writeNormalizedAwards(resumeId, s),
+    ],
+  ];
+
+  const errors = [];
+  for (const entry of sections) {
+    const [label, value, fn] = entry;
+    if (value === undefined) continue;
+    try {
+      await fn(value);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`[resumeService] normalized write failed (${label}):`, err.message || err);
+      errors.push({ label, message: err && err.message ? err.message : String(err) });
+    }
+  }
+  if (errors.length > 0) {
+    throw new Error(
+      'Normalized writes failed: ' +
+        errors.map((e) => `${e.label}: ${e.message}`).join('; ')
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Public service
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -591,40 +1138,150 @@ const resumeService = {
       .single();
 
     if (error) throw new Error(error.message);
-    // Newly created resume has no normalized child rows yet, so JSONB fallback
-    // is exercised end-to-end. Still go through the assembler for consistency.
-    return assembleResumeFromNormalized(data, {});
+
+    // Serialize the seed inserts behind the per-resume write chain so any
+    // immediately-following updateResume() lands strictly after the seeds.
+    return serializeResumeWrite(data.id, async () => {
+      // Phase 4: seed empty 1:1 starter rows so subsequent normalized reads
+      // succeed without falling back to JSONB. Repeatable tables stay empty
+      // until the user adds content.
+      //
+      // We use UPSERT (onConflict resume_id) so re-runs are safe — if the
+      // unique constraint is hit we simply no-op rather than fail.
+      //
+      // If the seeds DO fail (RLS, schema drift), we delete the parent resume
+      // row to roll back to a clean "as-if-never-created" state and rethrow.
+      // Phase 5 drops the JSONB safety net, so a resume row without seeds
+      // would corrupt the read path.
+      try {
+        throwOnError(
+          await supabase
+            .from('personal_info')
+            .upsert({ resume_id: data.id }, { onConflict: 'resume_id' }),
+          'personal_info_seed'
+        );
+        throwOnError(
+          await supabase
+            .from('professional_summary')
+            .upsert({ resume_id: data.id }, { onConflict: 'resume_id' }),
+          'professional_summary_seed'
+        );
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(
+          '[resumeService] createResume seeds failed; rolling back resume row:',
+          err.message || err
+        );
+        try {
+          await supabase.from('resumes').delete().eq('id', data.id);
+        } catch (rollbackErr) {
+          // eslint-disable-next-line no-console
+          console.error(
+            '[resumeService] createResume rollback failed:',
+            rollbackErr.message || rollbackErr
+          );
+        }
+        throw err;
+      }
+
+      return assembleResumeFromNormalized(data, {});
+    });
   },
 
   async updateResume(id, updates) {
-    // Pull out top-level metadata from updates — they go into dedicated columns
-    const {
-      id: _id, name, createdAt: _c, updatedAt: _u,
-      templateId, atsScore, status, currentStep, lastExportedAt,
-      ...resumeData
-    } = updates;
+    // Serialize per-resume so two concurrent auto-saves don't interleave
+    // their DELETE-then-INSERT sequences and lose rows.
+    return serializeResumeWrite(id, async () => {
+      // Pull out top-level metadata from updates — they go into dedicated columns
+      const {
+        id: _id, name, createdAt: _c, updatedAt: _u,
+        templateId, atsScore, status, currentStep, lastExportedAt,
+        ...resumeData
+      } = updates;
 
-    const patch = { data: resumeData };
-    if (name !== undefined)           patch.name = name;
-    if (templateId !== undefined)     patch.template_id = templateId;
-    if (atsScore !== undefined)       patch.ats_score = atsScore;
-    if (status !== undefined)         patch.status = status;
-    if (currentStep !== undefined)    patch.current_step = currentStep;
-    if (lastExportedAt !== undefined) patch.last_exported_at = lastExportedAt;
+      // ── Step 1: snapshot the existing JSONB so we can roll back on failure. ──
+      // If the parent UPDATE succeeds but any normalized write fails, we
+      // restore the previous JSONB so the user sees the prior state rather
+      // than a half-applied save.
+      let previousJsonb = null;
+      try {
+        const { data: prior } = await supabase
+          .from('resumes')
+          .select('data')
+          .eq('id', id)
+          .maybeSingle();
+        previousJsonb = prior?.data ?? null;
+      } catch (_) {
+        /* non-fatal — proceed without snapshot */
+      }
 
-    const { data, error } = await supabase
-      .from('resumes')
-      .update(patch)
-      .eq('id', id)
-      .select(RESUME_SELECT)
-      .single();
+      // ── Step 2: write JSONB + metadata cols on the resumes row (parent). ──
+      // careerObjective / summary metadata is folded into `patch` here so the
+      // parent UPDATE is atomic across all top-level columns. The dedicated
+      // metadata helper has been removed — these cols are owned by this UPDATE.
+      const patch = { data: resumeData };
+      if (name !== undefined)           patch.name = name;
+      if (templateId !== undefined)     patch.template_id = templateId;
+      if (atsScore !== undefined)       patch.ats_score = atsScore;
+      if (status !== undefined)         patch.status = status;
+      if (currentStep !== undefined)    patch.current_step = currentStep;
+      if (lastExportedAt !== undefined) patch.last_exported_at = lastExportedAt;
 
-    if (error) throw new Error(error.message);
-    // Phase 3: writes are JSONB-only, but reads still prefer normalized. After
-    // a write we must re-fetch normalized rows so the returned object reflects
-    // the latest state per-section (the in-app shape is unchanged).
-    const children = await fetchChildRowsForResume(data.id);
-    return assembleResumeFromNormalized(data, children);
+      const co = pickSection(updates, 'careerObjective') || {};
+      if ('careerObjective' in updates) {
+        patch.target_job_title = cleanString(co.targetJobTitle);
+        patch.target_industry = cleanString(co.targetIndustry);
+        const seniority = cleanString(co.seniorityLevel);
+        patch.seniority_level =
+          seniority && ALLOWED_SENIORITY.includes(seniority) ? seniority : null;
+        patch.job_description_text = cleanString(co.jobDescriptionText);
+        patch.job_description_url = cleanString(co.jobDescriptionUrl);
+      }
+      const sm = pickSection(updates, 'summary') || {};
+      if ('summary' in updates) {
+        const fmt = cleanString(sm.resumeFormatType);
+        if (fmt && ALLOWED_RESUME_FORMATS.includes(fmt)) patch.resume_format = fmt;
+        const len = cleanString(sm.resumeLength);
+        if (len && ALLOWED_RESUME_LENGTHS.includes(len)) patch.resume_length = len;
+      }
+
+      const { data, error } = await supabase
+        .from('resumes')
+        .update(patch)
+        .eq('id', id)
+        .select(RESUME_SELECT)
+        .single();
+
+      if (error) throw new Error(error.message);
+
+      // ── Step 3: write per-section normalized tables. ──
+      // 1:1 sections first (cheap upserts), then repeatables (DELETE-then-INSERT).
+      // If ANY section fails, runDualWriteSections aggregates errors and
+      // throws — we catch here, roll back the JSONB, and re-throw so the
+      // caller (auto-save / wizard) surfaces a save error to the user.
+      try {
+        await runDualWriteSections(id, updates);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[resumeService] dual-write failed; rolling back JSONB:', err);
+        if (previousJsonb !== null) {
+          try {
+            await supabase
+              .from('resumes')
+              .update({ data: previousJsonb })
+              .eq('id', id);
+          } catch (rollbackErr) {
+            // eslint-disable-next-line no-console
+            console.error('[resumeService] rollback also failed:', rollbackErr);
+          }
+        }
+        throw err;
+      }
+
+      // ── Step 4: re-fetch normalized rows so the returned shape reflects state. ──
+      const children = await fetchChildRowsForResume(data.id);
+      return assembleResumeFromNormalized(data, children);
+    });
   },
 
   async deleteResume(id) {
@@ -657,8 +1314,35 @@ const resumeService = {
       .single();
 
     if (error) throw new Error(error.message);
-    // Duplicate has no child rows yet — JSONB fallback covers everything.
-    return assembleResumeFromNormalized(data, {});
+
+    // Phase 4: route through updateResume so the full dual-write path runs and
+    // the new resume gets its own normalized child rows. We pass the assembled
+    // original (minus identity fields) as the update payload so every section
+    // is flagged as "present" and gets copied.
+    //
+    // updateResume serializes per-resume id and throws on any normalized
+    // failure. If it throws, we delete the orphan parent INSERT to roll back —
+    // Phase 5 drops JSONB so a parent without normalized children would
+    // corrupt reads.
+    try {
+      return await this.updateResume(data.id, resumeData);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(
+        '[resumeService] duplicateResume normalized copy failed; rolling back parent:',
+        err
+      );
+      try {
+        await supabase.from('resumes').delete().eq('id', data.id);
+      } catch (rollbackErr) {
+        // eslint-disable-next-line no-console
+        console.error(
+          '[resumeService] duplicateResume parent rollback failed:',
+          rollbackErr
+        );
+      }
+      throw err;
+    }
   },
 
   // ─── ATS Scores ───────────────────────────────────────────
