@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS resumes (
   id                   UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id              UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name                 TEXT        NOT NULL DEFAULT 'Untitled Resume',
-  data                 JSONB       NOT NULL DEFAULT '{}',
+  -- data JSONB column dropped by migration 006_drop_jsonb.sql (Phase 5)
   template_id          TEXT        DEFAULT 'modern',
   ats_score            NUMERIC,
   status               TEXT        DEFAULT 'draft',

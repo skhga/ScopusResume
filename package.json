@@ -43,10 +43,7 @@
     "eject": "react-scripts eject",
     "db:migrate": "node scripts/db/migrate.js",
     "db:status": "node scripts/db/migrate.js --status",
-    "db:backup": "node scripts/db/backup.js",
-    "db:backfill": "node scripts/db/backfill.js",
-    "db:backfill:dry": "node scripts/db/backfill.js --dry-run",
-    "db:verify": "node scripts/db/verify.js"
+    "db:backup": "node scripts/db/backup.js"
   },
   "jest": {
     "testMatch": [

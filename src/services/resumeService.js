@@ -1,6 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
 import {
-  emptyResume,
   emptyPersonalInfo,
   emptyCareerObjective,
   emptySkills,
@@ -9,23 +8,29 @@ import {
 } from '../constants/resumeFields';
 
 // ────────────────────────────────────────────────────────────────────────────
-// Phase 3: dual-read.
+// Phase 5: normalized-only.
 //
-// Reads prefer normalized child tables (added in migrations 003/004).
-// For each section, if ZERO rows exist in the normalized table, we fall back
-// to the corresponding piece of `resumes.data` JSONB. Fallback is per-section,
-// so partial migration states (e.g., normalized education + JSONB skills) work.
+// The `resumes.data` JSONB column has been retired. All resume content lives in
+// 11 normalized child tables (personal_info, education, work_experience,
+// bullet_points, skills, projects, certifications, volunteer_experience,
+// publications, awards, professional_summary) plus the metadata cols on the
+// parent `resumes` row (target_*, seniority_level, resume_format, ...).
 //
-// Writes are NOT changed in this phase — they still write to `resumes.data`
-// JSONB only. Phase 4 will add dual-write.
+// Reads: assemble from normalized rows; sections with no rows return empty
+// defaults. There is no JSONB fallback.
+//
+// Writes: createResume INSERTs the parent + seeds 1:1 child rows; updateResume
+// UPDATEs the parent metadata cols and per-section helpers handle the children.
+// A normalized write failure aggregates and re-throws so the caller surfaces a
+// save error. There is no JSONB rollback because there is no JSONB to roll
+// back to.
 //
 // Public API of this module is unchanged: same function names, same signatures,
-// same return shapes. `rowToResume` is retained as the JSONB-only path used
-// inside the assembler when a section has no normalized rows.
+// same return shapes.
 // ────────────────────────────────────────────────────────────────────────────
 
 const RESUME_SELECT =
-  'id, name, created_at, updated_at, data, template_id, ats_score, status, current_step, last_exported_at, ' +
+  'id, name, created_at, updated_at, template_id, ats_score, status, current_step, last_exported_at, ' +
   'target_job_title, target_industry, seniority_level, job_description_text, job_description_url, ' +
   'resume_format, resume_length';
 
@@ -53,33 +58,9 @@ function serializeResumeWrite(resumeId, fn) {
   return next;
 }
 
-/**
- * Flatten a Supabase row into the resume shape the app expects.
- * Top-level metadata columns are merged alongside the JSONB data blob.
- *
- * Used directly when no normalized rows exist (full JSONB fallback) and as
- * the per-section fallback source inside `assembleResumeFromNormalized`.
- */
-function rowToResume(row) {
-  return {
-    id: row.id,
-    name: row.name,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    // Metadata columns (top-level on the resumes table)
-    templateId: row.template_id ?? 'modern',
-    atsScore: row.ats_score ?? null,
-    status: row.status ?? 'draft',
-    currentStep: row.current_step ?? 1,
-    lastExportedAt: row.last_exported_at ?? null,
-    // Resume content (JSONB data column)
-    ...row.data,
-  };
-}
-
 // ────────────────────────────────────────────────────────────────────────────
 // Per-section mappers — pure functions converting normalized rows to the
-// in-app shape (inverse of scripts/db/backfill.js).
+// in-app shape (inverse of the normalized writes below).
 // ────────────────────────────────────────────────────────────────────────────
 
 function mapPersonalInfoRow(row) {
@@ -98,10 +79,9 @@ function mapPersonalInfoRow(row) {
 
 function mapCareerObjectiveFromResumeRow(row) {
   if (!row) return null;
-  // The metadata cols only carry careerObjective fields; if all are null/empty
-  // we treat the section as "absent" so JSONB fallback can kick in.
-  // TODO(phase-4): once dual-write keeps cols and JSONB in sync, this fallback
-  // can be removed — empty cols will reliably mean the user cleared the section.
+  // The careerObjective fields live on the parent resumes row as dedicated
+  // metadata columns. After Phase 5 these are the source of truth — if every
+  // field is empty, the user has cleared the section.
   const co = {
     targetJobTitle: row.target_job_title ?? '',
     targetIndustry: row.target_industry ?? '',
@@ -208,10 +188,10 @@ function mapProjectRows(rows) {
   return sortByDisplayOrder(rows).map((p) => {
     let description = p.description ?? '';
     let associatedInstitution = '';
-    // Backfill prepends `[institution] ` to the description; reverse it.
+    // The normalized `description` column may carry a `[institution] ` prefix
+    // because the schema has no dedicated column for institution. Reverse it.
     // Known limitation: any project whose description legitimately starts
-    // with `[Word]` (e.g. `[Note]`) will be misread. The schema has no
-    // dedicated column for institution; users may need manual cleanup.
+    // with `[Word]` (e.g. `[Note]`) will be misread; users may need manual cleanup.
     const match = /^\[([^\]]+)\](?:\s+(.*))?$/s.exec(description);
     if (match) {
       associatedInstitution = match[1];
@@ -301,8 +281,8 @@ function mapProfessionalSummaryRow(row) {
 
 // ────────────────────────────────────────────────────────────────────────────
 // Pure assembler — takes the parent resume row + an object of normalized
-// child rows and produces the in-app resume shape. Per-section fallback to
-// the JSONB `data` blob when a section has no normalized rows.
+// child rows and produces the in-app resume shape. After Phase 5 there is no
+// JSONB fallback — sections with no rows return empty defaults.
 //
 // `childRowsBySection` shape:
 //   {
@@ -321,9 +301,18 @@ function mapProfessionalSummaryRow(row) {
 // ────────────────────────────────────────────────────────────────────────────
 
 export function assembleResumeFromNormalized(resumeRow, childRowsBySection = {}) {
-  // Start with the JSONB-flattened version — this is the fallback baseline.
-  const base = rowToResume(resumeRow);
-  const data = resumeRow.data || {};
+  // Top-level metadata columns flatten onto the resume shape directly.
+  const base = {
+    id: resumeRow.id,
+    name: resumeRow.name,
+    createdAt: resumeRow.created_at,
+    updatedAt: resumeRow.updated_at,
+    templateId: resumeRow.template_id ?? 'modern',
+    atsScore: resumeRow.ats_score ?? null,
+    status: resumeRow.status ?? 'draft',
+    currentStep: resumeRow.current_step ?? 1,
+    lastExportedAt: resumeRow.last_exported_at ?? null,
+  };
 
   const {
     personalInfo: piRow,
@@ -340,122 +329,51 @@ export function assembleResumeFromNormalized(resumeRow, childRowsBySection = {})
   } = childRowsBySection;
 
   // ── personalInfo (1:1) ──
-  const piMapped = mapPersonalInfoRow(piRow);
-  if (piMapped) {
-    base.personalInfo = piMapped;
-  } else if (data.personalInfo) {
-    base.personalInfo = data.personalInfo;
-  } else {
-    base.personalInfo = { ...emptyPersonalInfo };
-  }
+  base.personalInfo = mapPersonalInfoRow(piRow) ?? { ...emptyPersonalInfo };
 
   // ── careerObjective (lives on resumes metadata cols) ──
-  const coMapped = mapCareerObjectiveFromResumeRow(resumeRow);
-  if (coMapped) {
-    base.careerObjective = coMapped;
-  } else if (data.careerObjective) {
-    base.careerObjective = data.careerObjective;
-  } else {
-    base.careerObjective = { ...emptyCareerObjective };
-  }
+  base.careerObjective =
+    mapCareerObjectiveFromResumeRow(resumeRow) ?? { ...emptyCareerObjective };
 
   // ── summary settings (resume_format / resume_length on resumes) ──
   const summarySettings = mapSummarySettingsFromResumeRow(resumeRow);
-  if (summarySettings) {
-    base.summary = { ...emptySummary, ...(data.summary || {}), ...summarySettings };
-  } else if (data.summary) {
-    base.summary = data.summary;
-  } else {
-    base.summary = { ...emptySummary };
-  }
+  base.summary = summarySettings
+    ? { ...emptySummary, ...summarySettings }
+    : { ...emptySummary };
 
   // ── education (repeatable) ──
-  if (education.length > 0) {
-    base.education = mapEducationRows(education);
-  } else if (Array.isArray(data.education)) {
-    base.education = data.education;
-  } else {
-    base.education = [];
-  }
+  base.education = education.length > 0 ? mapEducationRows(education) : [];
 
   // ── workExperience + bullet_points ──
-  if (workExperience.length > 0) {
-    base.workExperience = mapWorkExperienceRows(workExperience, bulletsByExperienceId);
-  } else if (Array.isArray(data.workExperience)) {
-    base.workExperience = data.workExperience;
-  } else {
-    base.workExperience = [];
-  }
+  base.workExperience =
+    workExperience.length > 0
+      ? mapWorkExperienceRows(workExperience, bulletsByExperienceId)
+      : [];
 
   // ── skills (repeatable, grouped by category) ──
-  if (skills.length > 0) {
-    base.skills = mapSkillsRows(skills);
-  } else if (data.skills) {
-    base.skills = data.skills;
-  } else {
-    base.skills = { ...emptySkills };
-  }
+  base.skills = skills.length > 0 ? mapSkillsRows(skills) : { ...emptySkills };
 
   // ── projects ──
-  if (projects.length > 0) {
-    base.projects = mapProjectRows(projects);
-  } else if (Array.isArray(data.projects)) {
-    base.projects = data.projects;
-  } else {
-    base.projects = [];
-  }
+  base.projects = projects.length > 0 ? mapProjectRows(projects) : [];
 
   // ── certifications ──
-  if (certifications.length > 0) {
-    base.certifications = mapCertificationRows(certifications);
-  } else if (Array.isArray(data.certifications)) {
-    base.certifications = data.certifications;
-  } else {
-    base.certifications = [];
-  }
+  base.certifications =
+    certifications.length > 0 ? mapCertificationRows(certifications) : [];
 
   // ── volunteerExperience ──
-  if (volunteerExperience.length > 0) {
-    base.volunteerExperience = mapVolunteerRows(volunteerExperience);
-  } else if (Array.isArray(data.volunteerExperience)) {
-    base.volunteerExperience = data.volunteerExperience;
-  } else if (Array.isArray(data.additionalInfo?.volunteerExperience)) {
-    base.volunteerExperience = data.additionalInfo.volunteerExperience;
-  } else {
-    base.volunteerExperience = [];
-  }
+  base.volunteerExperience =
+    volunteerExperience.length > 0 ? mapVolunteerRows(volunteerExperience) : [];
 
   // ── publications ──
-  if (publications.length > 0) {
-    base.publications = mapPublicationRows(publications);
-  } else if (Array.isArray(data.publications)) {
-    base.publications = data.publications;
-  } else if (Array.isArray(data.additionalInfo?.publications)) {
-    base.publications = data.additionalInfo.publications;
-  } else {
-    base.publications = [];
-  }
+  base.publications =
+    publications.length > 0 ? mapPublicationRows(publications) : [];
 
   // ── awards ──
-  if (awards.length > 0) {
-    base.awards = mapAwardRows(awards);
-  } else if (Array.isArray(data.awards)) {
-    base.awards = data.awards;
-  } else if (Array.isArray(data.additionalInfo?.awards)) {
-    base.awards = data.additionalInfo.awards;
-  } else {
-    base.awards = [];
-  }
+  base.awards = awards.length > 0 ? mapAwardRows(awards) : [];
 
   // ── professionalSummary (1:1) ──
-  const psMapped = mapProfessionalSummaryRow(psRow);
-  if (psMapped) {
-    base.professionalSummary = psMapped;
-  } else if (data.professionalSummary) {
-    base.professionalSummary = data.professionalSummary;
-  } else {
-    base.professionalSummary = { ...emptyProfessionalSummary };
-  }
+  base.professionalSummary =
+    mapProfessionalSummaryRow(psRow) ?? { ...emptyProfessionalSummary };
 
   return base;
 }
@@ -463,7 +381,7 @@ export function assembleResumeFromNormalized(resumeRow, childRowsBySection = {})
 // ────────────────────────────────────────────────────────────────────────────
 // Supabase fetch helpers — one per child table. Each returns [] on error so
 // a failed read of one section does not blow away the whole resume; the
-// per-section fallback to JSONB will kick in instead.
+// section will fall through to the empty default in the assembler.
 // ────────────────────────────────────────────────────────────────────────────
 
 async function fetchChildRowsForResume(resumeId) {
@@ -553,16 +471,14 @@ async function fetchChildRowsForResume(resumeId) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Phase 4: dual-write helpers.
+// Per-section normalized writers.
 //
-// Each helper mirrors the per-section logic in scripts/db/backfill.js but ports
-// from `pg.Client.query` to the Supabase JS client. They follow the same
-// idempotency strategy:
 //   - 1:1 sections (personal_info, professional_summary) → UPSERT on resume_id
 //   - Repeatable sections → DELETE-then-INSERT
 //
-// All helpers RETURN nothing on success and THROW on any DB error, so callers
-// can wrap in try/catch and fall back to JSONB-only consistency.
+// All helpers RETURN nothing on success and THROW on any DB error. The orchestrator
+// (runDualWriteSections) catches per-section throws, accumulates them, and re-raises
+// a single aggregated error so updateResume's caller sees a save failure.
 //
 // IMPORTANT: callers MUST check whether the section is present in `updates`
 // BEFORE invoking these — never call them with `undefined` because that would
@@ -582,8 +498,8 @@ const SKILL_CATEGORY_MAP = [
   ['domainSpecificSkills', 'domain'],
 ];
 
-// Value coercion helpers — mirror backfill.js. JSONB fields can be '', null,
-// or undefined. The DB expects NULL for missing values and proper types.
+// Value coercion helpers. Form inputs can be '', null, or undefined.
+// The DB expects NULL for missing values and proper types.
 function cleanString(v) {
   if (v === undefined || v === null) return null;
   const s = String(v).trim();
@@ -645,7 +561,7 @@ async function writeNormalizedPersonalInfo(resumeId, pi) {
 }
 
 async function writeNormalizedEducation(resumeId, education) {
-  // Always DELETE first (mirror backfill — empty array means "user cleared").
+  // Always DELETE first — empty array means "user cleared".
   throwOnError(
     await supabase.from('education').delete().eq('resume_id', resumeId),
     'education_delete'
@@ -936,7 +852,7 @@ async function writeNormalizedProfessionalSummary(resumeId, ps) {
   // Caller only invokes us when `professionalSummary` was explicitly present in
   // `updates`, so we always upsert — even when summaryText is empty/null. This
   // is the "user cleared the summary" path; refusing to write here would leave
-  // a stale row that survives Phase 5 (when JSONB is dropped).
+  // a stale row on disk after the JSONB column was dropped.
   const safe = ps && typeof ps === 'object' ? ps : {};
   const text = cleanString(safe.summaryText);
   throwOnError(
@@ -982,10 +898,8 @@ function pickSection(updates, ...paths) {
 //
 // Per-section failures are caught and accumulated. After all sections have run,
 // if ANY section failed we throw a single aggregated error so the caller's
-// outer try/catch can roll back the JSONB and surface a save error to the
-// user. The plan invariant — "if a normalized write fails, updateResume must
-// fail" — depends on this throw because Phase 5 drops the JSONB column and
-// silent failures here would become permanent data loss.
+// outer try/catch surfaces a save error to the user. With JSONB gone there is
+// no fallback store, so a silent failure here would mean permanent data loss.
 //
 // Note: resume_metadata cols (target_job_title, seniority_level, resume_format,
 // resume_length, …) are written by the parent UPDATE in updateResume itself,
@@ -1090,10 +1004,10 @@ const resumeService = {
     const rows = data || [];
 
     // Parallelize the per-resume child fetches so the dashboard stays snappy.
-    // TODO(perf, phase-5): collapse N×10 round-trips by fetching all child rows
-    // for all resume IDs in 10 .in('resume_id', ids) queries and grouping in
-    // memory — or use PostgREST embedded resources (select=*,personal_info(*),...)
-    // to fetch everything in one round trip.
+    // TODO(perf): collapse N×10 round-trips by fetching all child rows for
+    // all resume IDs in 10 .in('resume_id', ids) queries and grouping in
+    // memory — or use PostgREST embedded resources
+    // (select=*,personal_info(*),...) to fetch everything in one round trip.
     const assembled = await Promise.all(
       rows.map(async (row) => {
         const children = await fetchChildRowsForResume(row.id);
@@ -1119,17 +1033,14 @@ const resumeService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    // Strip top-level metadata from emptyResume — stored as separate columns
-    const { id: _id, name: _n, createdAt: _c, updatedAt: _u,
-            templateId: _tid, atsScore: _as, status: _st,
-            currentStep: _cs, lastExportedAt: _le, ...resumeData } = emptyResume;
-
+    // Phase 5: only metadata cols are written on the parent INSERT — child
+    // sections live in the normalized tables and the seed step below adds the
+    // 1:1 rows.
     const { data, error } = await supabase
       .from('resumes')
       .insert({
         user_id: user.id,
         name,
-        data: resumeData,
         template_id: 'modern',
         status: 'draft',
         current_step: 1,
@@ -1142,16 +1053,16 @@ const resumeService = {
     // Serialize the seed inserts behind the per-resume write chain so any
     // immediately-following updateResume() lands strictly after the seeds.
     return serializeResumeWrite(data.id, async () => {
-      // Phase 4: seed empty 1:1 starter rows so subsequent normalized reads
-      // succeed without falling back to JSONB. Repeatable tables stay empty
-      // until the user adds content.
+      // Seed empty 1:1 starter rows so subsequent normalized reads find a
+      // row (rather than nothing). Repeatable tables stay empty until the
+      // user adds content.
       //
       // We use UPSERT (onConflict resume_id) so re-runs are safe — if the
       // unique constraint is hit we simply no-op rather than fail.
       //
       // If the seeds DO fail (RLS, schema drift), we delete the parent resume
       // row to roll back to a clean "as-if-never-created" state and rethrow.
-      // Phase 5 drops the JSONB safety net, so a resume row without seeds
+      // Without JSONB as a safety net, a parent row with no normalized seeds
       // would corrupt the read path.
       try {
         throwOnError(
@@ -1194,32 +1105,18 @@ const resumeService = {
     return serializeResumeWrite(id, async () => {
       // Pull out top-level metadata from updates — they go into dedicated columns
       const {
-        id: _id, name, createdAt: _c, updatedAt: _u,
-        templateId, atsScore, status, currentStep, lastExportedAt,
-        ...resumeData
+        name,
+        templateId,
+        atsScore,
+        status,
+        currentStep,
+        lastExportedAt,
       } = updates;
 
-      // ── Step 1: snapshot the existing JSONB so we can roll back on failure. ──
-      // If the parent UPDATE succeeds but any normalized write fails, we
-      // restore the previous JSONB so the user sees the prior state rather
-      // than a half-applied save.
-      let previousJsonb = null;
-      try {
-        const { data: prior } = await supabase
-          .from('resumes')
-          .select('data')
-          .eq('id', id)
-          .maybeSingle();
-        previousJsonb = prior?.data ?? null;
-      } catch (_) {
-        /* non-fatal — proceed without snapshot */
-      }
-
-      // ── Step 2: write JSONB + metadata cols on the resumes row (parent). ──
-      // careerObjective / summary metadata is folded into `patch` here so the
-      // parent UPDATE is atomic across all top-level columns. The dedicated
-      // metadata helper has been removed — these cols are owned by this UPDATE.
-      const patch = { data: resumeData };
+      // ── Step 1: write metadata cols on the resumes row (parent). ──
+      // careerObjective / summary metadata is folded into `patch` so the
+      // parent UPDATE is atomic across all top-level columns.
+      const patch = {};
       if (name !== undefined)           patch.name = name;
       if (templateId !== undefined)     patch.template_id = templateId;
       if (atsScore !== undefined)       patch.ats_score = atsScore;
@@ -1245,42 +1142,42 @@ const resumeService = {
         if (len && ALLOWED_RESUME_LENGTHS.includes(len)) patch.resume_length = len;
       }
 
-      const { data, error } = await supabase
-        .from('resumes')
-        .update(patch)
-        .eq('id', id)
-        .select(RESUME_SELECT)
-        .single();
-
-      if (error) throw new Error(error.message);
-
-      // ── Step 3: write per-section normalized tables. ──
-      // 1:1 sections first (cheap upserts), then repeatables (DELETE-then-INSERT).
-      // If ANY section fails, runDualWriteSections aggregates errors and
-      // throws — we catch here, roll back the JSONB, and re-throw so the
-      // caller (auto-save / wizard) surfaces a save error to the user.
-      try {
-        await runDualWriteSections(id, updates);
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('[resumeService] dual-write failed; rolling back JSONB:', err);
-        if (previousJsonb !== null) {
-          try {
-            await supabase
-              .from('resumes')
-              .update({ data: previousJsonb })
-              .eq('id', id);
-          } catch (rollbackErr) {
-            // eslint-disable-next-line no-console
-            console.error('[resumeService] rollback also failed:', rollbackErr);
-          }
-        }
-        throw err;
+      // Postgres rejects an UPDATE with no SET clauses; if the patch is empty
+      // (caller passed only child sections and no metadata), skip the parent
+      // UPDATE and re-fetch the row at the end. The trigger that bumps
+      // updated_at is on UPDATE so we still want a dummy bump — but for now
+      // an empty patch is rare and harmless to skip.
+      let parentRow;
+      if (Object.keys(patch).length > 0) {
+        const { data, error } = await supabase
+          .from('resumes')
+          .update(patch)
+          .eq('id', id)
+          .select(RESUME_SELECT)
+          .single();
+        if (error) throw new Error(error.message);
+        parentRow = data;
+      } else {
+        const { data, error } = await supabase
+          .from('resumes')
+          .select(RESUME_SELECT)
+          .eq('id', id)
+          .single();
+        if (error) throw new Error(error.message);
+        parentRow = data;
       }
 
-      // ── Step 4: re-fetch normalized rows so the returned shape reflects state. ──
-      const children = await fetchChildRowsForResume(data.id);
-      return assembleResumeFromNormalized(data, children);
+      // ── Step 2: write per-section normalized tables. ──
+      // 1:1 sections first (cheap upserts), then repeatables (DELETE-then-INSERT).
+      // If ANY section fails, runDualWriteSections aggregates errors and throws
+      // — we let it propagate so the caller (auto-save / wizard) surfaces a
+      // save error to the user. There is no JSONB rollback because there is no
+      // JSONB to roll back to.
+      await runDualWriteSections(id, updates);
+
+      // ── Step 3: re-fetch normalized rows so the returned shape reflects state. ──
+      const children = await fetchChildRowsForResume(parentRow.id);
+      return assembleResumeFromNormalized(parentRow, children);
     });
   },
 
@@ -1305,7 +1202,6 @@ const resumeService = {
       .insert({
         user_id: user.id,
         name: `${name} (Copy)`,
-        data: resumeData,
         template_id: templateId ?? 'modern',
         status: 'draft',
         current_step: 1,
@@ -1315,15 +1211,14 @@ const resumeService = {
 
     if (error) throw new Error(error.message);
 
-    // Phase 4: route through updateResume so the full dual-write path runs and
+    // Route through updateResume so the full normalized-write path runs and
     // the new resume gets its own normalized child rows. We pass the assembled
     // original (minus identity fields) as the update payload so every section
     // is flagged as "present" and gets copied.
     //
     // updateResume serializes per-resume id and throws on any normalized
     // failure. If it throws, we delete the orphan parent INSERT to roll back —
-    // Phase 5 drops JSONB so a parent without normalized children would
-    // corrupt reads.
+    // a parent without normalized children would corrupt subsequent reads.
     try {
       return await this.updateResume(data.id, resumeData);
     } catch (err) {

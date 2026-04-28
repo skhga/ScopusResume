@@ -1,8 +1,11 @@
 // src/services/resumeService.test.js
 //
-// Unit tests for the pure `assembleResumeFromNormalized` helper. The function
-// has no Supabase dependencies, so we feed it plain objects matching the
-// normalized table row shapes and assert the assembled resume.
+// Unit tests for the pure `assembleResumeFromNormalized` helper plus the
+// public service surface (createResume / updateResume / duplicateResume).
+//
+// Phase 5 (normalized-only) note: the JSONB `resumes.data` column is gone, so
+// every assembly path uses normalized rows or returns empty defaults. There is
+// no JSONB fallback or rollback to test.
 //
 // Project uses Jest via react-scripts; we follow the existing describe/it/expect
 // style from src/utils/formatters.test.js.
@@ -41,7 +44,6 @@ function makeChain(table, method, args) {
               name: 'X',
               created_at: '2026-01-01T00:00:00Z',
               updated_at: '2026-01-02T00:00:00Z',
-              data: {},
               template_id: 'modern',
               ats_score: null,
               status: 'draft',
@@ -125,80 +127,17 @@ function makeResumeRow(overrides = {}) {
     job_description_url: null,
     resume_format: null,
     resume_length: null,
-    data: {},
     ...overrides,
   };
 }
 
-const fullJsonbData = {
-  personalInfo: {
-    fullName: 'JSONB Person',
-    email: 'jsonb@example.com',
-    phone: '555-000-0000',
-    city: 'Old City',
-    state: 'OS',
-    targetCountry: 'JX',
-    linkedinUrl: 'https://linkedin.com/in/jsonb',
-    portfolioUrl: 'https://jsonb.dev',
-  },
-  careerObjective: {
-    targetJobTitle: 'JSONB Engineer',
-    targetIndustry: 'tech',
-    seniorityLevel: 'mid',
-    jobDescriptionText: 'JD text',
-    jobDescriptionUrl: '',
-  },
-  education: [
-    { institutionName: 'JSONB University', degreeType: 'bs', fieldOfStudy: 'CS' },
-  ],
-  workExperience: [
-    {
-      companyName: 'JSONB Co',
-      jobTitle: 'Engineer',
-      bulletPoints: ['jsonb bullet 1', 'jsonb bullet 2'],
-    },
-  ],
-  skills: {
-    technicalSkills: ['jsonb-skill'],
-    programmingLanguages: ['Python'],
-    toolsSoftware: ['Git'],
-    languageSkills: [{ name: 'English', proficiency: 'native' }],
-    domainSpecificSkills: ['Healthcare'],
-  },
-  projects: [
-    {
-      projectTitle: 'JSONB Project',
-      projectDescription: 'desc',
-      technologiesUsed: ['React'],
-      projectOutcome: 'shipped',
-    },
-  ],
-  certifications: [
-    { certificationName: 'JSONB Cert', issuingBody: 'Body', dateObtained: '2023-01-01' },
-  ],
-  volunteerExperience: [
-    { organizationName: 'JSONB Org', role: 'Helper' },
-  ],
-  publications: [
-    { publicationTitle: 'JSONB Paper', authors: ['A'], year: '2023' },
-  ],
-  awards: [
-    { awardName: 'JSONB Award', awardingBody: 'Group' },
-  ],
-  professionalSummary: {
-    summaryText: 'JSONB summary',
-    isAiGenerated: false,
-  },
-};
-
 // ──────────────────────────────────────────────────────────────────────
-// 1. All sections present in normalized — uses normalized
+// 1. All sections present in normalized — assembled correctly
 // ──────────────────────────────────────────────────────────────────────
 
 describe('assembleResumeFromNormalized — all normalized', () => {
-  it('uses normalized rows for every section, ignoring JSONB fallback', () => {
+  it('uses normalized rows for every section', () => {
     const row = makeResumeRow({
-      data: fullJsonbData,
       target_job_title: 'Normalized Engineer',
       target_industry: 'fintech',
       seniority_level: 'senior',
@@ -345,70 +284,12 @@ describe('assembleResumeFromNormalized — all normalized', () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────
-// 2. All sections empty in normalized — falls back to JSONB
-// ──────────────────────────────────────────────────────────────────────
-
-describe('assembleResumeFromNormalized — full JSONB fallback', () => {
-  it('falls back to JSONB data for every section when normalized is empty', () => {
-    const row = makeResumeRow({ data: fullJsonbData });
-    const result = assembleResumeFromNormalized(row, {});
-
-    expect(result.personalInfo.fullName).toBe('JSONB Person');
-    expect(result.careerObjective.targetJobTitle).toBe('JSONB Engineer');
-    expect(result.education[0].institutionName).toBe('JSONB University');
-    expect(result.workExperience[0].companyName).toBe('JSONB Co');
-    expect(result.workExperience[0].bulletPoints).toEqual([
-      'jsonb bullet 1',
-      'jsonb bullet 2',
-    ]);
-    expect(result.skills.technicalSkills).toEqual(['jsonb-skill']);
-    expect(result.projects[0].projectTitle).toBe('JSONB Project');
-    expect(result.certifications[0].certificationName).toBe('JSONB Cert');
-    expect(result.volunteerExperience[0].organizationName).toBe('JSONB Org');
-    expect(result.publications[0].publicationTitle).toBe('JSONB Paper');
-    expect(result.awards[0].awardName).toBe('JSONB Award');
-    expect(result.professionalSummary.summaryText).toBe('JSONB summary');
-  });
-});
-
-// ──────────────────────────────────────────────────────────────────────
-// 3. Mixed — normalized education + JSONB skills
-// ──────────────────────────────────────────────────────────────────────
-
-describe('assembleResumeFromNormalized — per-section mixed fallback', () => {
-  it('uses normalized education while falling back to JSONB skills', () => {
-    const row = makeResumeRow({ data: fullJsonbData });
-
-    const result = assembleResumeFromNormalized(row, {
-      education: [
-        {
-          institution_name: 'Mixed U',
-          degree_type: 'phd',
-          field_of_study: 'Math',
-          display_order: 0,
-        },
-      ],
-      // skills intentionally omitted → JSONB fallback
-    });
-
-    // Normalized education
-    expect(result.education).toHaveLength(1);
-    expect(result.education[0].institutionName).toBe('Mixed U');
-    expect(result.education[0].degreeType).toBe('phd');
-
-    // JSONB skills
-    expect(result.skills.technicalSkills).toEqual(['jsonb-skill']);
-    expect(result.skills.programmingLanguages).toEqual(['Python']);
-  });
-});
-
-// ──────────────────────────────────────────────────────────────────────
-// 4. Empty resume — both stores empty
+// 2. Empty resume — both stores empty (Phase 5: there is no JSONB store)
 // ──────────────────────────────────────────────────────────────────────
 
 describe('assembleResumeFromNormalized — empty resume', () => {
-  it('returns empty defaults when both normalized and JSONB are empty', () => {
-    const row = makeResumeRow({ data: {} });
+  it('returns empty defaults when no normalized rows are passed', () => {
+    const row = makeResumeRow();
     const result = assembleResumeFromNormalized(row, {});
 
     expect(result.id).toBe('r1');
@@ -425,10 +306,17 @@ describe('assembleResumeFromNormalized — empty resume', () => {
     expect(result.awards).toEqual([]);
     expect(result.professionalSummary.summaryText).toBe('');
   });
+
+  it('returns empty defaults when childRowsBySection is omitted entirely', () => {
+    const row = makeResumeRow();
+    const result = assembleResumeFromNormalized(row);
+    expect(result.education).toEqual([]);
+    expect(result.skills.technicalSkills).toEqual([]);
+  });
 });
 
 // ──────────────────────────────────────────────────────────────────────
-// 5. Bullets: each work_experience row has correct bullet count
+// 3. Bullets: each work_experience row has correct bullet count
 // ──────────────────────────────────────────────────────────────────────
 
 describe('assembleResumeFromNormalized — bullet point assembly', () => {
@@ -476,7 +364,7 @@ describe('assembleResumeFromNormalized — bullet point assembly', () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────
-// 6. Skills: properly groups by category back into the object shape
+// 4. Skills: properly groups by category back into the object shape
 // ──────────────────────────────────────────────────────────────────────
 
 describe('assembleResumeFromNormalized — skill category grouping', () => {
@@ -516,7 +404,7 @@ describe('assembleResumeFromNormalized — skill category grouping', () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────
-// 7. Projects: institution prefix correctly extracted
+// 5. Projects: institution prefix correctly extracted
 // ──────────────────────────────────────────────────────────────────────
 
 describe('assembleResumeFromNormalized — project institution prefix', () => {
@@ -553,7 +441,7 @@ describe('assembleResumeFromNormalized — project institution prefix', () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────
-// 8. Personal info column-name → camelCase conversion
+// 6. Personal info column-name → camelCase conversion
 // ──────────────────────────────────────────────────────────────────────
 
 describe('assembleResumeFromNormalized — personal info field mapping', () => {
@@ -586,21 +474,34 @@ describe('assembleResumeFromNormalized — personal info field mapping', () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────
-// Phase 4: dual-write tests for createResume / updateResume / duplicateResume
+// Phase 5: normalized-only writes for createResume / updateResume / duplicateResume
 // ──────────────────────────────────────────────────────────────────────
 
-describe('resumeService.createResume — Phase 4 dual-write', () => {
+describe('resumeService.createResume — normalized-only', () => {
   beforeEach(resetDbMock);
 
-  it('inserts a resume row, then seeds personal_info + professional_summary via upsert', async () => {
+  it('inserts a resume row WITHOUT a JSONB data field, then seeds 1:1 child rows', async () => {
     const result = await resumeService.createResume('My Resume');
 
     expect(calledWith('resumes', 'insert')).toBe(true);
-    // Issue #5: seeds use upsert(onConflict: resume_id) so re-runs are safe.
+
+    // Phase 5 invariant: no `data` key in the parent INSERT payload.
+    const parentInsert = callsFor('resumes', 'insert')[0];
+    const payload = parentInsert.args[0];
+    expect(payload).toEqual(
+      expect.objectContaining({
+        name: 'My Resume',
+        template_id: 'modern',
+        status: 'draft',
+        current_step: 1,
+      })
+    );
+    expect(Object.prototype.hasOwnProperty.call(payload, 'data')).toBe(false);
+
+    // Seeds use upsert(onConflict: resume_id) so re-runs are safe.
     expect(calledWith('personal_info', 'upsert')).toBe(true);
     expect(calledWith('professional_summary', 'upsert')).toBe(true);
 
-    // The seed upserts must carry the new resume's id.
     const piUp = callsFor('personal_info', 'upsert')[0];
     expect(piUp.args[0]).toEqual(expect.objectContaining({ resume_id: 'r-new' }));
     expect(piUp.args[1]).toEqual(
@@ -647,7 +548,7 @@ describe('resumeService.createResume — Phase 4 dual-write', () => {
   });
 });
 
-describe('resumeService.updateResume — Phase 4 dual-write', () => {
+describe('resumeService.updateResume — normalized-only', () => {
   beforeEach(resetDbMock);
 
   it('UPDATEs the resumes row and writes per-section normalized tables', async () => {
@@ -708,6 +609,10 @@ describe('resumeService.updateResume — Phase 4 dual-write', () => {
     // Resumes UPDATE happens first (with metadata cols folded in).
     expect(calledWith('resumes', 'update')).toBe(true);
 
+    // Phase 5 invariant: parent UPDATE must NOT include a `data` JSONB key.
+    const parentPatch = callsFor('resumes', 'update')[0].args[0];
+    expect(Object.prototype.hasOwnProperty.call(parentPatch, 'data')).toBe(false);
+
     // Each per-section table is touched.
     expect(calledWith('personal_info', 'upsert')).toBe(true);
     expect(calledWith('education', 'delete')).toBe(true);
@@ -728,7 +633,7 @@ describe('resumeService.updateResume — Phase 4 dual-write', () => {
     expect(calledWith('awards', 'insert')).toBe(true);
     expect(calledWith('professional_summary', 'upsert')).toBe(true);
 
-    // ── Issue #8: payload-shape assertions for 3 sections ───────────────
+    // ── payload-shape assertions for 3 sections ─────────────────────────
     // (1) education: column names + values + display_order ascending.
     const eduIns = callsFor('education', 'insert')[0].args[0];
     expect(Array.isArray(eduIns)).toBe(true);
@@ -819,9 +724,6 @@ describe('resumeService.updateResume — Phase 4 dual-write', () => {
 
     // (4) The parent resumes UPDATE should have folded in the careerObjective
     // metadata cols (target_job_title, seniority_level) and summary cols.
-    // Find the FIRST update (the main parent update, before any rollback).
-    const resumeUpdates = callsFor('resumes', 'update');
-    const parentPatch = resumeUpdates[0].args[0];
     expect(parentPatch).toEqual(
       expect.objectContaining({
         target_job_title: 'Eng',
@@ -834,11 +736,16 @@ describe('resumeService.updateResume — Phase 4 dual-write', () => {
     mockSupabase.from = realFrom;
   });
 
-  it('still writes JSONB and metadata cols when no sections are present', async () => {
+  it('updates only metadata cols when no sections are present', async () => {
     await resumeService.updateResume('r-1', { name: 'Renamed' });
 
     // Parent UPDATE should still fire.
     expect(calledWith('resumes', 'update')).toBe(true);
+    const patch = callsFor('resumes', 'update')[0].args[0];
+    expect(patch).toEqual({ name: 'Renamed' });
+    // No `data` key on the parent patch — JSONB is gone.
+    expect(Object.prototype.hasOwnProperty.call(patch, 'data')).toBe(false);
+
     // Per-section tables should NOT be touched (no DELETE-everything bug).
     expect(calledWith('education', 'delete')).toBe(false);
     expect(calledWith('work_experience', 'delete')).toBe(false);
@@ -901,13 +808,7 @@ describe('resumeService.updateResume — Phase 4 dual-write', () => {
     );
   });
 
-  it('throws an aggregated error AND rolls back JSONB if a normalized write fails', async () => {
-    // Pre-populate the prior JSONB so we can assert the rollback payload.
-    const priorJsonb = { foo: 'prior' };
-    __selectResult = {
-      resumes: { maybeSingle: { data: priorJsonb } },
-    };
-
+  it('throws an aggregated error if a normalized write fails', async () => {
     // Make `skills` insert fail by intercepting the chain for that table only.
     const realFrom = mockSupabase.from;
     mockSupabase.from = jest.fn((table) => {
@@ -929,8 +830,8 @@ describe('resumeService.updateResume — Phase 4 dual-write', () => {
     });
     const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-    // Issue #1 + #2: a per-section failure now aggregates and rethrows so the
-    // outer caller sees a save error rather than silent corruption.
+    // A per-section failure aggregates and rethrows so the outer caller sees
+    // a save error rather than silent corruption.
     await expect(
       resumeService.updateResume('r-1', {
         skills: { technicalSkills: ['Bad'] },
@@ -943,25 +844,15 @@ describe('resumeService.updateResume — Phase 4 dual-write', () => {
     expect(calledWith('personal_info', 'upsert')).toBe(true);
     expect(errSpy).toHaveBeenCalled();
 
-    // JSONB rollback must have fired: an `update` call to `resumes` with
-    // { data: priorJsonb }. Find any update where the first arg is the snapshot.
-    const updates = callsFor('resumes', 'update');
-    const rollbackUpdate = updates.find(
-      (c) =>
-        c.args && c.args[0] && Object.prototype.hasOwnProperty.call(c.args[0], 'data') &&
-        c.args[0].data === priorJsonb
-    );
-    expect(rollbackUpdate).toBeDefined();
-
     errSpy.mockRestore();
     mockSupabase.from = realFrom;
   });
 });
 
-describe('resumeService.duplicateResume — Phase 4 dual-write', () => {
+describe('resumeService.duplicateResume — normalized-only', () => {
   beforeEach(resetDbMock);
 
-  it('inserts a new resume row and copies child rows via updateResume', async () => {
+  it('inserts a new resume row WITHOUT a JSONB data field and copies child rows via updateResume', async () => {
     // Configure the parent .single() lookup so getResumeById returns something.
     __selectResult = {
       resumes: {
@@ -970,10 +861,6 @@ describe('resumeService.duplicateResume — Phase 4 dual-write', () => {
           name: 'Original',
           created_at: '2026-01-01T00:00:00Z',
           updated_at: '2026-01-02T00:00:00Z',
-          data: {
-            personalInfo: { fullName: 'Source' },
-            education: [{ institutionName: 'SrcU' }],
-          },
           template_id: 'modern',
           ats_score: null,
           status: 'draft',
@@ -996,13 +883,27 @@ describe('resumeService.duplicateResume — Phase 4 dual-write', () => {
     const inserts = callsFor('resumes', 'insert');
     expect(inserts.length).toBeGreaterThanOrEqual(1);
 
+    // Phase 5 invariant: no `data` key on the parent INSERT payload.
+    const parentInsertPayload = inserts[0].args[0];
+    expect(Object.prototype.hasOwnProperty.call(parentInsertPayload, 'data')).toBe(
+      false
+    );
+    expect(parentInsertPayload).toEqual(
+      expect.objectContaining({
+        name: 'Original (Copy)',
+        template_id: 'modern',
+      })
+    );
+
     // The dual-write (via updateResume on the new id) should have triggered
-    // child writes for the sections present on the source.
+    // child writes. Even when source sections are empty (the normalized rows
+    // returned for the source resume are empty), updateResume still issues
+    // DELETE-then-INSERT for each section because the assembled `resumeData`
+    // payload includes every section key (with empty values).
     expect(calledWith('personal_info', 'upsert')).toBe(true);
     expect(calledWith('education', 'delete')).toBe(true);
-    expect(calledWith('education', 'insert')).toBe(true);
 
-    // The returned object exists and has the resume id.
+    // The returned object exists.
     expect(result).toBeTruthy();
   });
 });
