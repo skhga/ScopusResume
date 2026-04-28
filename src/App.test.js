@@ -1,23 +1,17 @@
 // src/App.test.js
+// Note: jest.mock() hoisting requires babel-jest; our sucrase transformer does
+// NOT hoist. We test the real app render path instead — the router loads the
+// landing page, which contains the brand name.
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-// Mock the full router so we don't need Supabase/AuthContext in tests.
-// babel-jest hoists jest.mock() above imports automatically.
-jest.mock('./router', () => {
-  const React = require('react');
-  const { createMemoryRouter } = require('react-router-dom');
-  return {
-    __esModule: true,
-    default: createMemoryRouter([
-      { path: '/', element: React.createElement('div', null, 'ScopusResume') },
-    ]),
-  };
-});
-
 describe('App', () => {
-  test('renders without crashing', async () => {
+  test('renders without crashing and mounts the landing page', async () => {
     render(<App />);
-    expect(await screen.findByText('ScopusResume')).toBeInTheDocument();
+    // Wait for the landing page to mount, then verify the brand name appears
+    // somewhere in the document. The brand text is split across nested spans so
+    // we check body.textContent rather than a specific node.
+    await screen.findByRole('navigation');
+    expect(document.body.textContent).toMatch(/scopus/i);
   });
 });

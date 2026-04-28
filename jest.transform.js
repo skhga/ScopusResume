@@ -6,14 +6,16 @@ const { transform } = require('sucrase');
 module.exports = {
   process(src, filename) {
     const isTs = /\.tsx?$/.test(filename);
-    const isJsx = /\.(jsx|tsx)$/.test(filename);
-    const transforms = ['imports'];
-    if (isJsx) transforms.push('jsx');
+    // Enable JSX for .jsx/.tsx AND for .js/.ts files — test files often use JSX
+    // even when named .js (e.g. App.test.js uses <App />).
+    const transforms = ['imports', 'jsx'];
     if (isTs) transforms.push('typescript');
     const result = transform(src, {
       transforms,
       filePath: filename,
       production: false,
+      jsxRuntime: 'automatic',
+      jsxImportSource: 'react',
     });
     return { code: result.code };
   },

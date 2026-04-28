@@ -18,7 +18,7 @@ export function useAutoSave(resumeId, data, saveFn) {
     if (!resumeId || !data || !saveFn) return;
 
     if (timerRef.current) clearTimeout(timerRef.current);
-    setSaveStatus("saving...");
+    setSaveStatus('saving');
 
     timerRef.current = setTimeout(async () => {
       try {
