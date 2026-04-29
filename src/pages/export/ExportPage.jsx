@@ -2,12 +2,14 @@ import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Download, FileType } from 'lucide-react';
 import { useResume } from '../../hooks/useResume';
-import { EXPORT_FORMATS } from '../../utils/constants';
+import { EXPORT_FORMATS, LANGUAGES } from '../../utils/constants';
 import { TEMPLATES } from '../../constants/templates';
 import { resumeToText } from '../../utils/resumeToText';
+import { translateResume } from '../../services/aiService';
 import Button from '../../components/common/Button';
 import Card from '../../components/common/Card';
 import ResumeTemplate from '../../components/resume/ResumeTemplate';
+import toast from 'react-hot-toast';
 
 export default function ExportPage() {
   const { id } = useParams();
@@ -21,6 +23,10 @@ export default function ExportPage() {
   const [colorAccent, setColorAccent] = useState('#0abab5');
   const [exporting, setExporting] = useState(false);
   const previewRef = useRef(null);
+  const [targetLang, setTargetLang] = useState('en');
+  const [translating, setTranslating] = useState(false);
+  const [translatedResume, setTranslatedResume] = useState(null);
+  const displayResume = translatedResume || resume;
 
   if (!resume) {
     return (
@@ -73,6 +79,19 @@ export default function ExportPage() {
       } catch (err) {
         console.error('Failed to save template:', err);
       }
+    }
+  };
+
+  const handleTranslate = async () => {
+    setTranslating(true);
+    try {
+      const translated = await translateResume(resume, targetLang);
+      setTranslatedResume(translated);
+      toast.success('Resume translated');
+    } catch (err) {
+      toast.error(err.message || 'Translation failed');
+    } finally {
+      setTranslating(false);
     }
   };
 
@@ -146,6 +165,24 @@ export default function ExportPage() {
             </div>
           </Card>
 
+          <Card title="Translation">
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <select value={targetLang} onChange={e => setTargetLang(e.target.value)} className="input-field flex-1">
+                  {LANGUAGES.map(l => (
+                    <option key={l.value} value={l.value}>{l.label}</option>
+                  ))}
+                </select>
+                <Button variant="secondary" size="sm" onClick={handleTranslate} loading={translating} disabled={targetLang === 'en'}>
+                  Translate
+                </Button>
+              </div>
+              {translatedResume && (
+                <p className="text-xs text-green-600">Translated to {LANGUAGES.find(l => l.value === targetLang)?.label}</p>
+              )}
+            </div>
+          </Card>
+
           <Button onClick={handleExport} loading={exporting} className="w-full">
             <Download className="h-4 w-4 mr-2" />Download {format.toUpperCase()}
           </Button>
@@ -154,7 +191,7 @@ export default function ExportPage() {
         {/* Preview */}
         <div className="lg:col-span-2">
           <div ref={previewRef} className="bg-white border border-gray-200 rounded-lg shadow-sm p-8 min-h-[600px] sticky top-6">
-            <ResumeTemplate resume={resume} template={template} />
+            <ResumeTemplate resume={displayResume} template={template} />
           </div>
         </div>
       </div>
