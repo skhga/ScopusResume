@@ -16,94 +16,27 @@
 // resets it in beforeEach.
 // ──────────────────────────────────────────────────────────────────────
 
-// A recording mock that returns a fluent chainable object terminating in a
-// thenable. We track every call by table+method so tests can assert against it.
-let __dbCalls = [];
-let __selectResult = null; // overridable per-test for `.select(...).single()` etc.
-
-function makeChain(table, method, args) {
-  __dbCalls.push({ table, method, args });
-  // Default resolved value for terminal awaits / chain ends.
-  const terminal = { data: __selectResult?.[table]?.[method] ?? [], error: null };
-  // Build a thenable that also exposes more chain methods.
-  const chain = {
-    select: jest.fn((...a) => {
-      __dbCalls.push({ table, method: 'select', args: a });
-      return chain;
-    }),
-    eq: jest.fn(() => chain),
-    in: jest.fn(() => chain),
-    order: jest.fn(() => chain),
-    limit: jest.fn(() => chain),
-    single: jest.fn(async () => ({
-      data:
-        __selectResult?.[table]?.single ??
-        (table === 'resumes'
-          ? {
-              id: 'r-new',
-              name: 'X',
-              created_at: '2026-01-01T00:00:00Z',
-              updated_at: '2026-01-02T00:00:00Z',
-              template_id: 'modern',
-              ats_score: null,
-              status: 'draft',
-              current_step: 1,
-              last_exported_at: null,
-              target_job_title: null,
-              target_industry: null,
-              seniority_level: null,
-              job_description_text: null,
-              job_description_url: null,
-              resume_format: null,
-              resume_length: null,
-            }
-          : {}),
-      error: null,
-    })),
-    maybeSingle: jest.fn(async () => ({
-      data: __selectResult?.[table]?.maybeSingle ?? null,
-      error: null,
-    })),
-    then: (resolve) => Promise.resolve(terminal).then(resolve),
-  };
-  return chain;
-}
-
-const mockSupabase = {
-  auth: {
-    getUser: jest.fn(async () => ({ data: { user: { id: 'user-1' } } })),
-  },
-  from: jest.fn((table) => ({
-    select: jest.fn((...args) => makeChain(table, 'select', args)),
-    insert: jest.fn((...args) => makeChain(table, 'insert', args)),
-    update: jest.fn((...args) => makeChain(table, 'update', args)),
-    delete: jest.fn((...args) => makeChain(table, 'delete', args)),
-    upsert: jest.fn((...args) => makeChain(table, 'upsert', args)),
-  })),
-};
-
-jest.mock('../lib/supabaseClient', () => ({
-  supabase: mockSupabase,
-}));
+// jest.mock with __mocks__ auto-discovery: the factory calls require(),
+// which is allowed in Jest mock factories. Jest hoists jest.mock to top,
+// so by using require('./__mocks__/supabaseClient') inside the factory,
+// we get the mock object without out-of-scope variable references.
+jest.mock('../lib/supabaseClient', () => require('./__mocks__/supabaseClient'));
 
 import resumeService, { assembleResumeFromNormalized } from './resumeService';
 
-function resetDbMock() {
-  __dbCalls = [];
-  __selectResult = null;
-  mockSupabase.from.mockClear();
-  mockSupabase.auth.getUser.mockClear();
-}
+// Get the same mock instance that resumeService sees
+const {
+  supabase: mockSupabase,
+  __resetMock,
+  __setSelectResult,
+  __getDbCalls,
+  __addDbCall,
+} = require('../lib/supabaseClient');
 
-// Convenience: did we hit `table` with `method` at least once?
-function calledWith(table, method) {
-  return __dbCalls.some((c) => c.table === table && c.method === method);
-}
-
-// Convenience: get all calls for a (table, method)
-function callsFor(table, method) {
-  return __dbCalls.filter((c) => c.table === table && c.method === method);
-}
+function resetDbMock() { __resetMock(); }
+function calledWith(table, method) { return __getDbCalls().some((c) => c.table === table && c.method === method); }
+function callsFor(table, method) { return __getDbCalls().filter((c) => c.table === table && c.method === method); }
+function setSelectResult(val) { __setSelectResult(val); }
 
 // ──────────────────────────────────────────────────────────────────────
 // Fixtures

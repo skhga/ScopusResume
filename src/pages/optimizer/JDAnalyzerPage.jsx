@@ -1,25 +1,79 @@
 import React, { useState } from 'react';
-import { Wand2, AlertCircle } from 'lucide-react';
 import { useResume } from '../../hooks/useResume';
-import { tailorResume } from '../../services/aiService';
+import { parseJobDescription, compareResumeToJD, tailorResume } from '../../services/aiService';
 import resumeVersionService from '../../services/resumeVersionService';
 import Button from '../../components/common/Button';
 import Card from '../../components/common/Card';
+import StepIndicator from '../../components/common/StepIndicator';
 import DiffView from '../../components/resume/DiffView';
+import JDParserPanel from '../../components/optimizer/JDParserPanel';
+import MatchComparisonPanel from '../../components/optimizer/MatchComparisonPanel';
+import { Search, BarChart3, Wand2, AlertCircle } from 'lucide-react';
+
+const TABS = [
+  { label: 'Parse', description: 'Analyze JD' },
+  { label: 'Compare', description: 'Match resume' },
+  { label: 'Optimize', description: 'Tailor resume' },
+];
 
 export default function JDAnalyzerPage() {
   const { resumes, updateResume } = useResume();
   const [selectedId, setSelectedId] = useState('');
   const [jdText, setJdText] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState(0);
+  const [maxTab, setMaxTab] = useState(0);
+
+  // Tab-specific state
+  const [parseResult, setParseResult] = useState(null);
+  const [compareResult, setCompareResult] = useState(null);
   const [diffs, setDiffs] = useState(null);
+
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
 
   const selectedResume = resumes.find(r => r.id === selectedId) || null;
-  const canAnalyze = jdText.trim().length > 0 && selectedId;
+  const hasInput = jdText.trim().length > 0 && selectedId;
 
+  const advanceTab = (newTab) => {
+    setMaxTab(m => Math.max(m, newTab));
+    setTab(newTab);
+  };
+
+  // --- Parse ---
+  const handleParse = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const result = await parseJobDescription(jdText);
+      setParseResult(result);
+      advanceTab(0); // stay on parse tab, show results
+    } catch (err) {
+      setError(err.message || 'Parsing failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Compare ---
+  const handleCompare = async () => {
+    if (!selectedResume) return;
+    setError('');
+    setLoading(true);
+    try {
+      const result = await compareResumeToJD(selectedResume, jdText);
+      setCompareResult(result);
+      advanceTab(1);
+    } catch (err) {
+      setError(err.message || 'Comparison failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Optimize (Tailor) ---
   const handleTailor = async () => {
+    if (!selectedResume) return;
     setError('');
     setDiffs(null);
     setSaved(false);
@@ -27,23 +81,16 @@ export default function JDAnalyzerPage() {
     try {
       const result = await tailorResume(selectedResume, jdText);
       setDiffs(result);
+      advanceTab(2);
     } catch (err) {
-      setError(err.message || 'Something went wrong. Please try again.');
+      setError(err.message || 'Tailoring failed');
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * Apply a single diff to the resume in memory.
-   * The tailored version replaces the relevant text in the resume sections.
-   * Since resume data is structured (not plain text), we save the full diff
-   * set as a tailored_diffs field so the user can see history.
-   */
   const handleApply = (diff) => {
     if (!selectedResume) return;
-    // Store the applied diff on the resume for now — granular field-level apply
-    // will be wired once Supabase schema is finalized in Sprint 2.
     const existing = selectedResume.tailoredDiffs || [];
     updateResume(selectedResume.id, {
       ...selectedResume,
@@ -53,114 +100,131 @@ export default function JDAnalyzerPage() {
 
   const handleApplyAll = async () => {
     if (!selectedResume || !diffs) return;
-
-    // Save a version snapshot BEFORE applying (non-fatal if it fails)
     try {
-      await resumeVersionService.saveVersion(
-        selectedResume.id,
-        selectedResume,
-        jdText,
-        diffs
-      );
+      await resumeVersionService.saveVersion(selectedResume.id, selectedResume, jdText, diffs);
     } catch (err) {
       console.warn('[JDAnalyzerPage] Failed to save version snapshot:', err);
     }
-
-    updateResume(selectedResume.id, {
-      ...selectedResume,
-      tailoredDiffs: diffs,
-    });
+    updateResume(selectedResume.id, { ...selectedResume, tailoredDiffs: diffs });
     setSaved(true);
   };
 
   return (
     <div className="page-container max-w-5xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">AI Tailor</h1>
-      <p className="text-gray-500 mb-6">
-        Paste a job description to see a diff of what to change in your resume.
-      </p>
+      <h1 className="text-2xl font-bold text-gray-900 mb-1">JD Analyzer</h1>
+      <p className="text-gray-500 mb-6">Paste a job description, parse it, compare to your resume, and optimize.</p>
 
-      {/* Inputs */}
+      {/* Shared inputs */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Select Resume</label>
-            <select
-              value={selectedId}
-              onChange={e => { setSelectedId(e.target.value); setDiffs(null); setError(''); }}
-              className="input-field bg-white"
-            >
-              <option value="">-- Select a resume --</option>
-              {resumes.map(r => (
-                <option key={r.id} value={r.id}>{r.name || 'Untitled'}</option>
-              ))}
-            </select>
-            {resumes.length === 0 && (
-              <p className="text-xs text-gray-400 mt-1">
-                No resumes yet. <a href="/app/builder" className="text-brand-600 hover:underline">Create one first.</a>
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Job Description</label>
-            <textarea
-              value={jdText}
-              onChange={e => { setJdText(e.target.value); setDiffs(null); setError(''); }}
-              rows={12}
-              className="input-field resize-none"
-              placeholder="Paste the full job description here..."
-            />
-            {jdText.length > 5000 && (
-              <p className="text-xs text-yellow-600 mt-1">
-                Long JD — only the first 5,000 characters will be sent.
-              </p>
-            )}
-          </div>
-
-          <Button
-            onClick={handleTailor}
-            loading={loading}
-            disabled={!canAnalyze}
-            className="w-full"
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Select Resume</label>
+          <select
+            value={selectedId}
+            onChange={e => {
+              setSelectedId(e.target.value);
+              setParseResult(null);
+              setCompareResult(null);
+              setDiffs(null);
+              setError('');
+            }}
+            className="input-field bg-white"
           >
-            <Wand2 className="h-4 w-4 mr-2" />
-            {loading ? 'Tailoring...' : 'Tailor Resume'}
-          </Button>
-
-          {!canAnalyze && !loading && (
-            <p className="text-xs text-gray-400 text-center">
-              {!selectedId ? 'Select a resume above' : 'Paste a job description to continue'}
+            <option value="">-- Select a resume --</option>
+            {resumes.map(r => (
+              <option key={r.id} value={r.id}>{r.name || 'Untitled'}</option>
+            ))}
+          </select>
+          {resumes.length === 0 && (
+            <p className="text-xs text-gray-400 mt-1">
+              No resumes yet. <a href="/app/builder" className="text-brand-600 hover:underline">Create one first.</a>
             </p>
           )}
         </div>
 
-        {/* Results panel */}
         <div>
-          {!diffs && !loading && !error && (
-            <div className="card p-8 text-center text-gray-400 h-full flex flex-col items-center justify-center">
-              <Wand2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">
-                Select a resume, paste a job description, and click Tailor Resume.
-              </p>
-              <p className="text-xs mt-2 text-gray-300">
-                You'll see a side-by-side diff of what to change.
-              </p>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Job Description</label>
+          <textarea
+            value={jdText}
+            onChange={e => {
+              setJdText(e.target.value);
+              setParseResult(null);
+              setCompareResult(null);
+              setDiffs(null);
+              setError('');
+            }}
+            rows={5}
+            className="input-field resize-none"
+            placeholder="Paste the full job description here..."
+          />
+          {jdText.length > 5000 && (
+            <p className="text-xs text-yellow-600 mt-1">Long JD — only the first 5,000 characters will be sent.</p>
+          )}
+        </div>
+      </div>
+
+      {/* Step Indicator + Action Buttons */}
+      <div className="mb-4">
+        <StepIndicator currentStep={tab} steps={TABS} maxStep={maxTab} onStepClick={advanceTab} />
+      </div>
+
+      <div className="flex gap-3 mb-6">
+        <Button onClick={handleParse} loading={loading} disabled={!jdText.trim()} variant="secondary" size="sm">
+          <Search className="h-4 w-4 mr-1.5" /> Parse JD
+        </Button>
+        <Button onClick={handleCompare} loading={loading} disabled={!hasInput} variant="secondary" size="sm">
+          <BarChart3 className="h-4 w-4 mr-1.5" /> Compare
+        </Button>
+        <Button onClick={handleTailor} loading={loading} disabled={!hasInput} size="sm">
+          <Wand2 className="h-4 w-4 mr-1.5" /> Optimize
+        </Button>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <Card className="mb-6">
+          <div className="flex items-start gap-3 text-red-600">
+            <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-sm">Something went wrong</p>
+              <p className="text-sm text-red-500 mt-0.5">{error}</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Tab Content */}
+      {tab === 0 && (
+        <div>
+          {!parseResult && !loading && (
+            <div className="card p-12 text-center text-gray-400">
+              <Search className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">Paste a job description and click Parse JD to extract structured information.</p>
             </div>
           )}
+          {parseResult && <JDParserPanel result={parseResult} />}
+        </div>
+      )}
 
-          {error && (
-            <Card>
-              <div className="flex items-start gap-3 text-red-600">
-                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium text-sm">Something went wrong</p>
-                  <p className="text-sm text-red-500 mt-0.5">{error}</p>
-                </div>
-              </div>
-            </Card>
+      {tab === 1 && (
+        <div>
+          {!compareResult && !loading && (
+            <div className="card p-12 text-center text-gray-400">
+              <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">Select a resume and click Compare to see how you match this job.</p>
+            </div>
           )}
+          {compareResult && <MatchComparisonPanel result={compareResult} />}
+        </div>
+      )}
 
+      {tab === 2 && (
+        <div>
+          {!diffs && !loading && (
+            <div className="card p-12 text-center text-gray-400">
+              <Wand2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">Click Optimize to get tailored suggestions for this job description.</p>
+            </div>
+          )}
           {diffs && (
             <div className="space-y-4">
               {saved && (
@@ -175,16 +239,12 @@ export default function JDAnalyzerPage() {
                   </p>
                 </Card>
               ) : (
-                <DiffView
-                  diffs={diffs}
-                  onApply={handleApply}
-                  onApplyAll={handleApplyAll}
-                />
+                <DiffView diffs={diffs} onApply={handleApply} onApplyAll={handleApplyAll} />
               )}
             </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

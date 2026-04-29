@@ -62,10 +62,26 @@ export default function ExportPage() {
           })
           .from(previewRef.current)
           .save();
-      } else {
-        // docx — placeholder; requires a server-side generator
-        alert('DOCX export requires a server-side component. PDF and TXT are available now.');
+      } else if (format === 'docx') {
+        const response = await fetch('/api/export-docx', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resume: displayResume, templateId: template }),
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error || 'DOCX generation failed');
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${safeName}.docx`;
+        a.click();
+        URL.revokeObjectURL(url);
       }
+    } catch (err) {
+      toast.error(err.message || 'Export failed');
     } finally {
       setExporting(false);
     }

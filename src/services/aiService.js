@@ -220,6 +220,129 @@ export async function optimizeBullets(bullets) {
 }
 
 /**
+ * Parse a job description into structured data.
+ * Returns: { requiredSkills[], preferredSkills[], keywords[{word, count}], senioritySignals[], cultureHints[], roleTitle }
+ */
+export async function parseJobDescription(jdText) {
+  if (!jdText?.trim()) throw new Error('Job description is required.');
+
+  if (IS_PROD || !OPENAI_KEY) {
+    // In production, use analyze endpoint with parse action
+    const systemPrompt = `You are a job description parser. Extract structured information from the job description below.
+Return ONLY a JSON object with this exact shape:
+{
+  "roleTitle": string,
+  "requiredSkills": string[],
+  "preferredSkills": string[],
+  "keywords": [{word: string, count: number}],
+  "senioritySignals": string[],
+  "cultureHints": string[]
+}`;
+    const resumeText = ''; // not needed for parse
+    return callProxy('/api/analyze', { resumeText: '', jd: jdText.slice(0, 5000), action: 'parse' });
+  }
+
+  const systemPrompt = `You are a job description parser. Extract structured information from the job description below.
+Return ONLY a JSON object with this exact shape:
+{
+  "roleTitle": string,
+  "requiredSkills": string[],
+  "preferredSkills": string[],
+  "keywords": [{"word": string, "count": number}],
+  "senioritySignals": string[],
+  "cultureHints": string[]
+}`;
+
+  const raw = await callLLM(systemPrompt, jdText.slice(0, 5000));
+  const parsed = parseJSON(raw);
+
+  if (!parsed || !Array.isArray(parsed.requiredSkills)) {
+    throw new Error('LLM returned malformed JD parse result. Please try again.');
+  }
+  return parsed;
+}
+
+const MOCK_JD_PARSE = {
+  roleTitle: 'Senior Frontend Engineer',
+  requiredSkills: ['React', 'TypeScript', 'CSS', 'REST APIs', 'Git'],
+  preferredSkills: ['Next.js', 'GraphQL', 'AWS', 'Docker'],
+  keywords: [
+    { word: 'React', count: 8 }, { word: 'TypeScript', count: 5 },
+    { word: 'frontend', count: 4 }, { word: 'CSS', count: 3 },
+    { word: 'performance', count: 3 }, { word: 'testing', count: 2 },
+    { word: 'collaboration', count: 2 },
+  ],
+  senioritySignals: ['5+ years experience', 'led teams', 'senior-level'],
+  cultureHints: ['fast-paced', 'collaborative', 'remote-friendly'],
+};
+
+/**
+ * Compare a resume against a job description.
+ * Returns: { overallMatch, skillMatch, experienceMatch, educationMatch, matchedSkills[], missingKeywords[], gapAnalysis[], suggestions[] }
+ */
+export async function compareResumeToJD(resume, jdText) {
+  if (!jdText?.trim()) throw new Error('Job description is required.');
+
+  const resumeText = resumeToText(resume);
+
+  if (IS_PROD || !OPENAI_KEY) {
+    return callProxy('/api/analyze', { resumeText, jd: jdText.slice(0, 5000), action: 'compare' });
+  }
+
+  if (!OPENAI_KEY) {
+    console.warn('[aiService] No API key — using mock compareResumeToJD response.');
+    await new Promise(r => setTimeout(r, 600));
+    const skills = resume?.skills || {};
+    const allSkills = [
+      ...(skills.technicalSkills || []),
+      ...(skills.programmingLanguages || []),
+      ...(skills.toolsSoftware || []),
+    ].map(s => s.toLowerCase());
+    const required = ['React', 'TypeScript', 'Next.js', 'GraphQL', 'AWS', 'Docker', 'CSS', 'REST APIs'];
+    const matched = required.filter(s => allSkills.some(sk => sk.toLowerCase().includes(s.toLowerCase())));
+    const missing = required.filter(s => !allSkills.some(sk => sk.toLowerCase().includes(s.toLowerCase())));
+    return {
+      overallMatch: Math.round((matched.length / required.length) * 100),
+      skillMatch: Math.round((matched.filter(s => ['React', 'TypeScript', 'CSS', 'REST APIs'].includes(s)).length / 4) * 100),
+      experienceMatch: 75,
+      educationMatch: 80,
+      matchedSkills: matched,
+      missingKeywords: missing,
+      gapAnalysis: [
+        { area: 'Skills', severity: 'medium', detail: `Missing: ${missing.slice(0, 3).join(', ')}` },
+        { area: 'Experience', severity: 'low', detail: 'Consider adding more quantified achievements' },
+      ],
+      suggestions: [
+        'Add AWS and Docker experience if applicable',
+        'Highlight any team leadership or mentoring experience',
+        'Include more performance optimization achievements',
+      ],
+    };
+  }
+
+  const systemPrompt = `You are an expert resume-to-job matcher. Compare the resume against this job description.
+Return ONLY a JSON object with this exact shape:
+{
+  "overallMatch": number (0-100),
+  "skillMatch": number (0-100),
+  "experienceMatch": number (0-100),
+  "educationMatch": number (0-100),
+  "matchedSkills": string[],
+  "missingKeywords": string[],
+  "gapAnalysis": [{"area": string, "severity": "low"|"medium"|"high", "detail": string}],
+  "suggestions": string[]
+}`;
+
+  const raw = await callLLM(systemPrompt, `RESUME:\n${resumeText || '(empty)'}\n\nJOB DESCRIPTION:\n${jdText.slice(0, 5000)}`);
+  const parsed = parseJSON(raw);
+
+  if (!parsed || typeof parsed.overallMatch !== 'number') {
+    throw new Error('LLM returned malformed comparison. Please try again.');
+  }
+  return parsed;
+}
+
+/**
  * Translate resume content via DeepL proxy.
  * Returns a deep-cloned resume with translated text fields.
  */
