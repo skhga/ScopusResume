@@ -3,6 +3,7 @@ import { createBrowserRouter, Outlet } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import { ResumeProvider } from './context/ResumeContext';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 import AuthLayout from './components/layout/AuthLayout';
 import AppLayout from './components/layout/AppLayout';
@@ -27,7 +28,9 @@ function RootLayout() {
   return (
     <AuthProvider>
       <ResumeProvider>
-        <Outlet />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
         <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
       </ResumeProvider>
     </AuthProvider>
