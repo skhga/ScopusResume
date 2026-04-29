@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabaseClient';
+import toast from 'react-hot-toast';
 import Button from '../../components/common/Button';
 import Card from '../../components/common/Card';
 import Modal from '../../components/common/Modal';
@@ -10,10 +11,22 @@ export default function AccountSettingsPage() {
   const { user, updateProfile, logout } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState({ name: user?.name || '', email: user?.email || '', phone: '' });
-  const [passwords, setPasswords] = useState({ current: '', newPass: '', confirm: '' });
+  const [passwords, setPasswords] = useState({ newPass: '', confirm: '' });
+  const [changingPassword, setChangingPassword] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Sync profile state when user loads (fixes stale state on mount when user is null)
+  useEffect(() => {
+    if (user) {
+      setProfile(prev => ({
+        ...prev,
+        name: user.name || prev.name,
+        email: user.email || prev.email,
+      }));
+    }
+  }, [user]);
 
   const saveProfile = (e) => { e.preventDefault(); updateProfile(profile); };
 
@@ -47,6 +60,29 @@ export default function AccountSettingsPage() {
     }
   };
 
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (passwords.newPass !== passwords.confirm) {
+      toast.error('New passwords do not match.');
+      return;
+    }
+    if (passwords.newPass.length < 6) {
+      toast.error('Password must be at least 6 characters.');
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: passwords.newPass });
+      if (error) throw error;
+      toast.success('Password updated successfully.');
+      setPasswords({ newPass: '', confirm: '' });
+    } catch (err) {
+      toast.error(err.message || 'Failed to update password.');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     setDeleting(true);
     try {
@@ -76,13 +112,12 @@ export default function AccountSettingsPage() {
       </Card>
 
       <Card title="Change Password">
-        <form className="space-y-4" onSubmit={e => e.preventDefault()}>
-          <div><label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label><input type="password" value={passwords.current} onChange={e => setPasswords({...passwords, current: e.target.value})} className="input-field max-w-sm" /></div>
+        <form className="space-y-4" onSubmit={handleChangePassword}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">New Password</label><input type="password" value={passwords.newPass} onChange={e => setPasswords({...passwords, newPass: e.target.value})} className="input-field" /></div>
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Confirm New</label><input type="password" value={passwords.confirm} onChange={e => setPasswords({...passwords, confirm: e.target.value})} className="input-field" /></div>
+            <div><label className="block text-sm font-medium text-gray-700 mb-1">New Password</label><input type="password" value={passwords.newPass} onChange={e => setPasswords({...passwords, newPass: e.target.value})} className="input-field" minLength={6} /></div>
+            <div><label className="block text-sm font-medium text-gray-700 mb-1">Confirm New</label><input type="password" value={passwords.confirm} onChange={e => setPasswords({...passwords, confirm: e.target.value})} className="input-field" minLength={6} /></div>
           </div>
-          <Button type="submit" size="sm">Update Password</Button>
+          <Button type="submit" size="sm" loading={changingPassword}>Update Password</Button>
         </form>
       </Card>
 
@@ -98,23 +133,22 @@ export default function AccountSettingsPage() {
         </div>
         <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
           <div>
-            <p className="font-medium text-gray-900">Delete Account</p>
-            <p className="text-sm text-gray-500">Your data is retained for 30 days before permanent deletion.</p>
+            <p className="font-medium text-gray-900">Sign Out &amp; Data</p>
+            <p className="text-sm text-gray-500">Sign out of your account. Your data is retained and can be recovered on your next sign-in.</p>
           </div>
-          <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>Delete Account</Button>
+          <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>Sign Out</Button>
         </div>
       </Card>
 
-      <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Delete Account">
-        <p className="text-gray-600 mb-2">Are you sure you want to delete your account?</p>
+      <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Sign Out">
+        <p className="text-gray-600 mb-2">This will sign you out and your account data will be retained.</p>
         <p className="text-sm text-gray-500 mb-6">
-          Your data will be retained for <strong>30 days</strong> before permanent deletion.
-          You can contact support within this period to recover your account.
+          To permanently delete your account, contact <strong>support@scopusresume.com</strong>.
         </p>
         <div className="flex justify-end space-x-3">
           <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>Cancel</Button>
           <Button variant="danger" onClick={handleDeleteAccount} loading={deleting}>
-            Yes, Delete My Account
+            Yes, Sign Out
           </Button>
         </div>
       </Modal>
