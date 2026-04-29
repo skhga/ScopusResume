@@ -13,6 +13,9 @@ export function AuthProvider({ children }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
+    }).catch((err) => {
+      console.error('Failed to get Supabase session:', err);
+      setLoading(false);
     });
 
     // Listen for auth state changes (login, logout, token refresh)
