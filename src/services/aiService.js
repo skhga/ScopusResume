@@ -218,3 +218,89 @@ export async function optimizeBullets(bullets) {
   const parsed = parseJSON(raw);
   return Array.isArray(parsed) ? parsed : bullets;
 }
+
+/**
+ * Translate resume content via DeepL proxy.
+ * Returns a deep-cloned resume with translated text fields.
+ */
+export async function translateResume(resume, targetLang = 'FR') {
+  const texts = [];
+
+  const exp = resume.workExperience || [];
+  for (const e of exp) {
+    if (e.jobTitle) texts.push(e.jobTitle);
+    if (e.bulletPoints) texts.push(...e.bulletPoints.filter(Boolean));
+  }
+
+  const edu = resume.education || [];
+  for (const e of edu) {
+    if (e.degreeType) texts.push(e.degreeType);
+    if (e.fieldOfStudy) texts.push(e.fieldOfStudy);
+    if (e.thesisTitle) texts.push(e.thesisTitle);
+    if (e.honorsAwards) texts.push(e.honorsAwards);
+  }
+
+  const skills = resume.skills || {};
+  if (skills.domainSpecificSkills) texts.push(...skills.domainSpecificSkills);
+
+  const summaryText =
+    resume.reviewOptimize?.professionalSummary?.summaryText ||
+    resume.professionalSummary?.summaryText ||
+    resume.summary?.summaryText ||
+    '';
+  if (summaryText) texts.push(summaryText);
+
+  const additionalInfo = resume.additionalInfo || {};
+  const volunteerExp = additionalInfo.volunteerExperience || [];
+  for (const v of volunteerExp) {
+    if (v.role) texts.push(v.role);
+    if (v.description) texts.push(v.description);
+  }
+
+  const projects = resume.projects || [];
+  for (const p of projects) {
+    if (p.projectDescription) texts.push(p.projectDescription);
+  }
+
+  if (texts.length === 0) return resume;
+
+  let translated;
+  if (IS_PROD || !OPENAI_KEY) {
+    const res = await fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: texts, targetLang }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Translation failed');
+    }
+    const data = await res.json();
+    translated = data.translations?.map(t => t.text) || texts;
+  } else {
+    await new Promise(r => setTimeout(r, 800));
+    translated = texts.map(t => `[${targetLang}] ${t}`);
+  }
+
+  const result = JSON.parse(JSON.stringify(resume));
+  let ti = 0;
+  const next = () => translated[ti++] || '';
+
+  for (const e of result.workExperience || []) {
+    if (e.jobTitle) e.jobTitle = next();
+    if (e.bulletPoints) e.bulletPoints = e.bulletPoints.map(() => next());
+  }
+  for (const e of result.education || []) {
+    if (e.degreeType) e.degreeType = next();
+    if (e.fieldOfStudy) e.fieldOfStudy = next();
+    if (e.thesisTitle) e.thesisTitle = next();
+    if (e.honorsAwards) e.honorsAwards = next();
+  }
+  if (result.skills?.domainSpecificSkills) {
+    result.skills.domainSpecificSkills = result.skills.domainSpecificSkills.map(() => next());
+  }
+  const sumPath = result.reviewOptimize?.professionalSummary || result.professionalSummary || result.summary || {};
+  if (sumPath.summaryText) sumPath.summaryText = next();
+
+  return result;
+}
