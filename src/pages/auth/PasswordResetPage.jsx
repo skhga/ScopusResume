@@ -12,7 +12,10 @@ export default function PasswordResetPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email) return;
+    if (!email) {
+      setError('Please enter your email address.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
