@@ -124,20 +124,30 @@ export default function ExportPage() {
           {/* Template */}
           <Card title="Template">
             <div className="grid grid-cols-2 gap-2">
-              {TEMPLATES.map(t => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => handleTemplateChange(t.id)}
-                  className={`p-3 rounded-xl border-2 text-left transition-all ${
-                    template === t.id ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <p className="text-sm font-semibold text-gray-800">{t.name}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{t.description}</p>
-                  <p className="text-xs text-brand-600 mt-1">Best for: {t.bestFor}</p>
-                </button>
-              ))}
+              {TEMPLATES.map(t => {
+                const previewStyle = {
+                  modern: { header: 'bg-brand-700', headerText: 'text-white' },
+                  classic: { header: 'bg-white border border-gray-300', headerText: 'text-gray-900 font-serif' },
+                  minimal: { header: 'bg-white', headerText: 'text-gray-400 font-light tracking-widest' },
+                  professional: { header: 'bg-slate-800', headerText: 'text-white' },
+                }[t.id] || {};
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => handleTemplateChange(t.id)}
+                    className={`p-3 rounded-xl border-2 text-left transition-all ${
+                      template === t.id ? 'border-brand-500 bg-brand-50 ring-2 ring-brand-200' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className={`h-10 rounded-lg mb-2 flex items-center justify-center text-xs font-bold ${previewStyle.header}`}>
+                      <span className={previewStyle.headerText}>{t.name}</span>
+                    </div>
+                    <p className="text-xs text-gray-500">{t.description}</p>
+                    <p className="text-xs text-brand-600 mt-0.5">{t.bestFor}</p>
+                  </button>
+                );
+              })}
             </div>
           </Card>
 
