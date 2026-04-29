@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Save, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { STEP_LABELS } from '../../utils/constants';
@@ -42,6 +42,7 @@ export default function ResumeBuilderPage() {
   const [step, setStep] = useState(0);
   const [maxStep, setMaxStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const stepRestoredRef = useRef(false);
   const [formData, setFormData] = useState({
     personalInfo: {},
     careerObjective: {},
@@ -57,9 +58,12 @@ export default function ResumeBuilderPage() {
       const existing = resumes.find(r => r.id === id);
       if (existing) {
         setCurrentResume(existing.id);
-        const savedStep = Math.min(existing.current_step || 0, STEP_COMPONENTS.length - 1);
-        setStep(savedStep);
-        setMaxStep(savedStep);
+        if (!stepRestoredRef.current) {
+          const savedStep = Math.min(existing.current_step || 0, STEP_COMPONENTS.length - 1);
+          setStep(savedStep);
+          setMaxStep(savedStep);
+          stepRestoredRef.current = true;
+        }
         setFormData({
           personalInfo: existing.personalInfo || {},
           careerObjective: existing.careerObjective || {},
