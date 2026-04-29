@@ -40,6 +40,7 @@ export default function ResumeBuilderPage() {
   const navigate = useNavigate();
   const { currentResume, createResume, updateResume, setCurrentResume, resumes } = useResume();
   const [step, setStep] = useState(0);
+  const [maxStep, setMaxStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     personalInfo: {},
@@ -56,6 +57,9 @@ export default function ResumeBuilderPage() {
       const existing = resumes.find(r => r.id === id);
       if (existing) {
         setCurrentResume(existing.id);
+        const savedStep = Math.min(existing.current_step || 0, STEP_COMPONENTS.length - 1);
+        setStep(savedStep);
+        setMaxStep(savedStep);
         setFormData({
           personalInfo: existing.personalInfo || {},
           careerObjective: existing.careerObjective || {},
@@ -103,7 +107,14 @@ export default function ResumeBuilderPage() {
     updateResume,
   );
 
-  const next = () => { save(); setStep(s => Math.min(s + 1, STEP_COMPONENTS.length - 1)); };
+  const next = () => {
+    save();
+    setStep(s => {
+      const n = Math.min(s + 1, STEP_COMPONENTS.length - 1);
+      setMaxStep(m => Math.max(m, n));
+      return n;
+    });
+  };
   const prev = () => setStep(s => Math.max(s - 1, 0));
 
   const StepComponent = STEP_COMPONENTS[step];
@@ -130,7 +141,7 @@ export default function ResumeBuilderPage() {
         </div>
       </div>
 
-      <StepIndicator steps={STEP_LABELS} currentStep={step} onStepClick={setStep} />
+      <StepIndicator steps={STEP_LABELS} currentStep={step} maxStep={maxStep} onStepClick={setStep} />
 
       <div className="card mt-6 p-6">
         {stepKey === 'reviewOptimize' ? (
