@@ -15,6 +15,7 @@ export default function AccountSettingsPage() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   // Sync profile state when user loads (fixes stale state on mount when user is null)
@@ -28,8 +29,18 @@ export default function AccountSettingsPage() {
     }
   }, [user]);
 
-  const saveProfile = (e) => { e.preventDefault(); updateProfile(profile); };
-
+  const saveProfile = async (e) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    try {
+      await updateProfile(profile);
+      toast.success('Profile saved.');
+    } catch (err) {
+      toast.error(err.message || 'Failed to save profile.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
   const handleDataExport = async () => {
     if (!user?.id) return;
     setExporting(true);
@@ -54,7 +65,7 @@ export default function AccountSettingsPage() {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Data export failed:', err);
-      alert('Export failed. Please try again.');
+      toast.error('Export failed. Please try again.');
     } finally {
       setExporting(false);
     }
@@ -83,7 +94,7 @@ export default function AccountSettingsPage() {
     }
   };
 
-  const handleDeleteAccount = async () => {
+  const handleSignOut = async () => {
     setDeleting(true);
     try {
       await logout();
@@ -107,7 +118,7 @@ export default function AccountSettingsPage() {
             <div><label className="block text-sm font-medium text-gray-700 mb-1">Email</label><input type="email" value={profile.email} onChange={e => setProfile({...profile, email: e.target.value})} className="input-field" /></div>
           </div>
           <div className="max-w-sm"><label className="block text-sm font-medium text-gray-700 mb-1">Phone</label><input value={profile.phone} onChange={e => setProfile({...profile, phone: e.target.value})} className="input-field" placeholder="+1 (555) 000-0000" /></div>
-          <Button type="submit" size="sm">Save Changes</Button>
+          <Button type="submit" size="sm" loading={savingProfile}>Save Changes</Button>
         </form>
       </Card>
 
@@ -147,7 +158,7 @@ export default function AccountSettingsPage() {
         </p>
         <div className="flex justify-end space-x-3">
           <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>Cancel</Button>
-          <Button variant="danger" onClick={handleDeleteAccount} loading={deleting}>
+          <Button variant="danger" onClick={handleSignOut} loading={deleting}>
             Yes, Sign Out
           </Button>
         </div>
