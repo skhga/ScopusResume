@@ -23,6 +23,8 @@ yarn-debug.log*
 yarn-error.log*
 ~$*
 .gstack/
+.worktrees/
+.superpowers/
 
 # database backups (created by scripts/db/backup.js)
 backups/
