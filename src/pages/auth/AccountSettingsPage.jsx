@@ -13,10 +13,10 @@ export default function AccountSettingsPage() {
   const [profile, setProfile] = useState({ name: user?.name || '', email: user?.email || '', phone: '' });
   const [passwords, setPasswords] = useState({ newPass: '', confirm: '' });
   const [changingPassword, setChangingPassword] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSignOutModal, setShowDeleteModal] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   // Sync profile state when user loads (fixes stale state on mount when user is null)
   useEffect(() => {
@@ -95,14 +95,14 @@ export default function AccountSettingsPage() {
   };
 
   const handleSignOut = async () => {
-    setDeleting(true);
+    setSigningOut(true);
     try {
       await logout();
       navigate('/');
     } catch (err) {
-      console.error('Account deletion failed:', err);
+      console.error('Sign out failed:', err);
     } finally {
-      setDeleting(false);
+      setSigningOut(false);
       setShowDeleteModal(false);
     }
   };
@@ -151,14 +151,14 @@ export default function AccountSettingsPage() {
         </div>
       </Card>
 
-      <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Sign Out">
+      <Modal isOpen={showSignOutModal} onClose={() => setShowDeleteModal(false)} title="Sign Out">
         <p className="text-gray-600 mb-2">This will sign you out and your account data will be retained.</p>
         <p className="text-sm text-gray-500 mb-6">
           To permanently delete your account, contact <strong>support@scopusresume.com</strong>.
         </p>
         <div className="flex justify-end space-x-3">
           <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>Cancel</Button>
-          <Button variant="danger" onClick={handleSignOut} loading={deleting}>
+          <Button variant="danger" onClick={handleSignOut} loading={signingOut}>
             Yes, Sign Out
           </Button>
         </div>
