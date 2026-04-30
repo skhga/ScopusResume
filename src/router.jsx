@@ -26,14 +26,14 @@ import PrivacyPolicy from './pages/legal/PrivacyPolicy';
 
 function RootLayout() {
   return (
-    <AuthProvider>
-      <ResumeProvider>
-        <ErrorBoundary>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ResumeProvider>
           <Outlet />
-        </ErrorBoundary>
-        <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
-      </ResumeProvider>
-    </AuthProvider>
+          <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+        </ResumeProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

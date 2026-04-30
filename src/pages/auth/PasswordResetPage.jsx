@@ -1,14 +1,29 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Mail, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, ArrowLeft, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
 import Button from '../../components/common/Button';
 import authService from '../../services/authService';
+import toast from 'react-hot-toast';
+import { supabase } from '../../lib/supabaseClient';
 
 export default function PasswordResetPage() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecoveryMode(true);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,6 +42,81 @@ export default function PasswordResetPage() {
       setLoading(false);
     }
   };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (!newPassword || !confirmPassword) {
+      setError('Please fill in both password fields.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast.success('Password updated successfully.');
+      navigate('/signin');
+    } catch (err) {
+      setError(err.message || 'Failed to reset password.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (recoveryMode) {
+    return (
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Set new password</h2>
+        <p className="text-gray-600 mb-8">Enter your new password below.</p>
+        <form onSubmit={handleResetPassword} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="password"
+                value={newPassword}
+                onChange={e => { setNewPassword(e.target.value); if (error) setError(''); }}
+                className="input-field pl-10"
+                placeholder="Min. 6 characters"
+                minLength={6}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={e => { setConfirmPassword(e.target.value); if (error) setError(''); }}
+                className="input-field pl-10"
+                placeholder="Repeat your password"
+                minLength={6}
+              />
+            </div>
+          </div>
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
+          <Button type="submit" loading={loading} className="w-full">Reset Password</Button>
+        </form>
+        <p className="text-center text-sm text-gray-600 mt-6"><Link to="/signin" className="text-brand-600 font-medium hover:underline inline-flex items-center"><ArrowLeft className="h-3 w-3 mr-1" />Back to Sign In</Link></p>
+      </div>
+    );
+  }
 
   if (sent) {
     return (
@@ -47,7 +137,7 @@ export default function PasswordResetPage() {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
           <div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="input-field pl-10" placeholder="john@example.com" /></div>
+          <input type="email" value={email} onChange={e => { setEmail(e.target.value); if (error) setError(''); }} className="input-field pl-10" placeholder="john@example.com" /></div>
         </div>
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">

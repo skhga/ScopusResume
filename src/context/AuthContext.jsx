@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import authService from '../services/authService';
 
@@ -46,9 +46,11 @@ export function AuthProvider({ children }) {
   };
 
   // Derive display name from Supabase user metadata
-  const displayUser = user
-    ? { ...user, name: user.user_metadata?.full_name || user.email }
-    : null;
+  const displayUser = useMemo(() => {
+    return user
+      ? { ...user, name: user.user_metadata?.full_name || user.email }
+      : null;
+  }, [user]);
 
   return (
     <AuthContext.Provider value={{

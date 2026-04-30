@@ -34,6 +34,9 @@ const authService = {
     const updates = {};
     if (data.name) updates.data = { full_name: data.name };
     if (data.email) updates.email = data.email;
+    if (data.phone) {
+      updates.data = { ...(updates.data || {}), phone: data.phone };
+    }
 
     const { data: updated, error } = await supabase.auth.updateUser(updates);
     if (error) throw new Error(error.message);

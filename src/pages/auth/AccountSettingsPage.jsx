@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabaseClient';
@@ -19,8 +19,10 @@ export default function AccountSettingsPage() {
   const [signingOut, setSigningOut] = useState(false);
 
   // Sync profile state when user loads (fixes stale state on mount when user is null)
+  const initialSyncDone = useRef(false);
   useEffect(() => {
-    if (user) {
+    if (user && !initialSyncDone.current) {
+      initialSyncDone.current = true;
       setProfile(prev => ({
         ...prev,
         name: user.name || prev.name,
@@ -31,10 +33,15 @@ export default function AccountSettingsPage() {
 
   const saveProfile = async (e) => {
     e.preventDefault();
+    const emailChanged = profile.email !== user?.email;
     setSavingProfile(true);
     try {
       await updateProfile(profile);
-      toast.success('Profile saved.');
+      if (emailChanged) {
+        toast.success('Profile saved. Check your email to verify the new address.');
+      } else {
+        toast.success('Profile saved.');
+      }
     } catch (err) {
       toast.error(err.message || 'Failed to save profile.');
     } finally {
@@ -101,6 +108,7 @@ export default function AccountSettingsPage() {
       navigate('/');
     } catch (err) {
       console.error('Sign out failed:', err);
+      toast.error(err.message || 'Sign out failed.');
     } finally {
       setSigningOut(false);
       setShowDeleteModal(false);
@@ -132,7 +140,7 @@ export default function AccountSettingsPage() {
         </form>
       </Card>
 
-      <Card title="Data & Privacy" className="border-red-200">
+      <Card title="Data & Privacy">
         <div className="flex items-center justify-between">
           <div>
             <p className="font-medium text-gray-900">Export Your Data</p>
@@ -147,7 +155,7 @@ export default function AccountSettingsPage() {
             <p className="font-medium text-gray-900">Sign Out &amp; Data</p>
             <p className="text-sm text-gray-500">Sign out of your account. Your data is retained and can be recovered on your next sign-in.</p>
           </div>
-          <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>Sign Out</Button>
+          <Button variant="secondary" size="sm" onClick={() => setShowDeleteModal(true)}>Sign Out</Button>
         </div>
       </Card>
 
@@ -158,8 +166,8 @@ export default function AccountSettingsPage() {
         </p>
         <div className="flex justify-end space-x-3">
           <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>Cancel</Button>
-          <Button variant="danger" onClick={handleSignOut} loading={signingOut}>
-            Yes, Sign Out
+          <Button variant="secondary" onClick={handleSignOut} loading={signingOut}>
+            Sign Out
           </Button>
         </div>
       </Modal>
